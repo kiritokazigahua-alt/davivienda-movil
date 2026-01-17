@@ -4,10 +4,12 @@ import {
   transactions, Transaction, InsertTransaction,
   beneficiaries, Beneficiary, InsertBeneficiary,
   services, Service, InsertService,
-  userSessions, UserSession, InsertUserSession
+  userSessions, UserSession, InsertUserSession,
+  cards, Card, InsertCard,
+  cardNotifications, CardNotification, InsertCardNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -51,6 +53,26 @@ export interface IStorage {
   updateSessionLogout(id: number, logoutTime: Date): Promise<UserSession | undefined>;
   getSessionsByUserId(userId: number): Promise<UserSession[]>;
   getAllSessions(): Promise<UserSession[]>;
+  
+  // Card operations
+  getCardsByUserId(userId: number): Promise<Card[]>;
+  getCardById(id: number): Promise<Card | undefined>;
+  createCard(card: InsertCard): Promise<Card>;
+  updateCard(id: number, cardData: Partial<Card>): Promise<Card | undefined>;
+  updateCardStatus(id: number, status: string): Promise<Card | undefined>;
+  updateCardBalance(id: number, balance: number): Promise<Card | undefined>;
+  updateCardBalanceStatus(id: number, balanceStatus: string): Promise<Card | undefined>;
+  getAllCards(): Promise<Card[]>;
+  getPendingCards(): Promise<Card[]>;
+  approveCard(id: number, adminId: number): Promise<Card | undefined>;
+  rejectCard(id: number): Promise<Card | undefined>;
+  
+  // Card notification operations
+  createCardNotification(notification: InsertCardNotification): Promise<CardNotification>;
+  getCardNotificationsByUserId(userId: number): Promise<CardNotification[]>;
+  getUnreadCardNotifications(): Promise<CardNotification[]>;
+  markCardNotificationAsRead(id: number): Promise<CardNotification | undefined>;
+  getAllCardNotifications(): Promise<CardNotification[]>;
   
   // Initialization
   initializeDefaultData(): Promise<void>;
@@ -290,6 +312,133 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(userSessions)
       .orderBy(desc(userSessions.loginTime));
+  }
+  
+  // Card operations
+  async getCardsByUserId(userId: number): Promise<Card[]> {
+    return await db.select()
+      .from(cards)
+      .where(eq(cards.userId, userId))
+      .orderBy(desc(cards.requestDate));
+  }
+  
+  async getCardById(id: number): Promise<Card | undefined> {
+    const result = await db.select().from(cards).where(eq(cards.id, id));
+    return result[0];
+  }
+  
+  async createCard(card: InsertCard): Promise<Card> {
+    const result = await db.insert(cards).values({
+      ...card,
+      requestDate: new Date(),
+      status: card.status || 'pending',
+      balance: card.balance || 0,
+      balanceStatus: card.balanceStatus || 'active'
+    }).returning();
+    return result[0];
+  }
+  
+  async updateCard(id: number, cardData: Partial<Card>): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set(cardData)
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async updateCardStatus(id: number, status: string): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set({ status })
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async updateCardBalance(id: number, balance: number): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set({ balance })
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async updateCardBalanceStatus(id: number, balanceStatus: string): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set({ balanceStatus })
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async getAllCards(): Promise<Card[]> {
+    return await db.select()
+      .from(cards)
+      .orderBy(desc(cards.requestDate));
+  }
+  
+  async getPendingCards(): Promise<Card[]> {
+    return await db.select()
+      .from(cards)
+      .where(eq(cards.status, 'pending'))
+      .orderBy(desc(cards.requestDate));
+  }
+  
+  async approveCard(id: number, adminId: number): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set({ 
+        status: 'active',
+        approvedDate: new Date(),
+        approvedBy: adminId
+      })
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async rejectCard(id: number): Promise<Card | undefined> {
+    const result = await db.update(cards)
+      .set({ status: 'rejected' })
+      .where(eq(cards.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  // Card notification operations
+  async createCardNotification(notification: InsertCardNotification): Promise<CardNotification> {
+    const result = await db.insert(cardNotifications).values({
+      ...notification,
+      createdAt: new Date(),
+      read: 0
+    }).returning();
+    return result[0];
+  }
+  
+  async getCardNotificationsByUserId(userId: number): Promise<CardNotification[]> {
+    return await db.select()
+      .from(cardNotifications)
+      .where(eq(cardNotifications.userId, userId))
+      .orderBy(desc(cardNotifications.createdAt));
+  }
+  
+  async getUnreadCardNotifications(): Promise<CardNotification[]> {
+    return await db.select()
+      .from(cardNotifications)
+      .where(eq(cardNotifications.read, 0))
+      .orderBy(desc(cardNotifications.createdAt));
+  }
+  
+  async markCardNotificationAsRead(id: number): Promise<CardNotification | undefined> {
+    const result = await db.update(cardNotifications)
+      .set({ read: 1 })
+      .where(eq(cardNotifications.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async getAllCardNotifications(): Promise<CardNotification[]> {
+    return await db.select()
+      .from(cardNotifications)
+      .orderBy(desc(cardNotifications.createdAt));
   }
   
   // Initialize default data if database is empty

@@ -72,3 +72,35 @@ export interface Service {
   category: 'electricity' | 'water' | 'phone' | 'internet' | 'tv';
   description?: string;
 }
+
+// Card types
+export type CardStatus = 'pending' | 'active' | 'blocked' | 'frozen' | 'rejected';
+export type BalanceStatus = 'active' | 'blocked' | 'frozen';
+export type CardRequestType = 'request' | 'register';
+
+export interface Card {
+  id: number;
+  userId: number;
+  cardNumber: string;
+  cardType: string;
+  cardBrand: string;
+  expirationDate: string;
+  cvv?: string;
+  status: CardStatus;
+  balance: number;
+  balanceStatus: BalanceStatus;
+  requestType: CardRequestType;
+  requestDate: string;
+  approvedDate?: string;
+  approvedBy?: number;
+}
+
+export interface CardNotification {
+  id: number;
+  userId: number;
+  cardId?: number;
+  type: string;
+  message: string;
+  read: number;
+  createdAt: string;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
-import { User, Account, Transaction, UserSession, CURRENCIES, CurrencyCode } from "@/types";
+import { User, Account, Transaction, UserSession, CURRENCIES, CurrencyCode, Card as CardType, CardNotification } from "@/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,11 @@ interface ExtendedAccount extends Account {
   userName?: string;
 }
 
+interface ExtendedCard extends CardType {
+  userName?: string;
+  userDocument?: string;
+}
+
 // Interfaz para alertas personalizadas
 interface Alert {
   id: number;
@@ -49,6 +54,8 @@ const AdminPage = () => {
   const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [sessions, setSessions] = useState<ExtendedUserSession[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
+  const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
   const [statistics, setStatistics] = useState<any>({
     totalUsers: 0,
     activeAccounts: 0,
@@ -293,6 +300,139 @@ const AdminPage = () => {
       toast({
         title: "Error",
         description: "No se pudieron cargar las sesiones",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const fetchCards = async () => {
+    try {
+      showLoading("Cargando tarjetas...");
+      const response = await apiRequest("GET", "/api/admin/cards");
+      const data = await response.json();
+      setAdminCards(data);
+      hideLoading();
+    } catch (error) {
+      console.error("Error obteniendo tarjetas:", error);
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las tarjetas",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleApproveCard = async (cardId: number) => {
+    try {
+      showLoading("Aprobando tarjeta...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${cardId}/approve`);
+      if (!response.ok) {
+        throw new Error("Error al aprobar tarjeta");
+      }
+      fetchCards();
+      toast({
+        title: "Tarjeta aprobada",
+        description: "La tarjeta ha sido aprobada exitosamente",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo aprobar la tarjeta",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRejectCard = async (cardId: number) => {
+    try {
+      showLoading("Rechazando tarjeta...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${cardId}/reject`);
+      if (!response.ok) {
+        throw new Error("Error al rechazar tarjeta");
+      }
+      fetchCards();
+      toast({
+        title: "Tarjeta rechazada",
+        description: "La tarjeta ha sido rechazada",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo rechazar la tarjeta",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleCardStatusChange = async (cardId: number, status: string) => {
+    try {
+      showLoading("Actualizando estado de tarjeta...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${cardId}/status`, { status });
+      if (!response.ok) {
+        throw new Error("Error al actualizar estado");
+      }
+      fetchCards();
+      toast({
+        title: "Estado actualizado",
+        description: `La tarjeta ha sido ${status === 'active' ? 'activada' : status === 'blocked' ? 'bloqueada' : 'congelada'}`,
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleCardBalanceStatusChange = async (cardId: number, balanceStatus: string) => {
+    try {
+      showLoading("Actualizando estado de saldo...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${cardId}/balance-status`, { balanceStatus });
+      if (!response.ok) {
+        throw new Error("Error al actualizar estado de saldo");
+      }
+      fetchCards();
+      toast({
+        title: "Estado de saldo actualizado",
+        description: `El saldo ha sido ${balanceStatus === 'active' ? 'activado' : balanceStatus === 'blocked' ? 'bloqueado' : 'congelado'}`,
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del saldo",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleCardBalanceChange = async (cardId: number, balance: number) => {
+    try {
+      showLoading("Actualizando saldo...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${cardId}/balance`, { balance });
+      if (!response.ok) {
+        throw new Error("Error al actualizar saldo");
+      }
+      fetchCards();
+      toast({
+        title: "Saldo actualizado",
+        description: "El saldo de la tarjeta ha sido actualizado",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el saldo",
         variant: "destructive",
       });
     }
@@ -633,15 +773,18 @@ const AdminPage = () => {
       </div>
       
       <Tabs defaultValue="dashboard">
-        <TabsList className="w-full border-b mb-6">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="users" onClick={fetchUsers}>Usuarios</TabsTrigger>
-          <TabsTrigger value="accounts" onClick={fetchAccounts}>Cuentas</TabsTrigger>
-          <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>
-          <TabsTrigger value="sessions" onClick={fetchSessions}>Historial de Sesiones</TabsTrigger>
-          <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
-          <TabsTrigger value="alerts">Alertas</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2 mb-4">
+          <TabsList className="w-max min-w-full border-b flex-nowrap">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="users" onClick={fetchUsers}>Usuarios</TabsTrigger>
+            <TabsTrigger value="accounts" onClick={fetchAccounts}>Cuentas</TabsTrigger>
+            <TabsTrigger value="cards" onClick={fetchCards}>Tarjetas</TabsTrigger>
+            <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>
+            <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>
+            <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+            <TabsTrigger value="alerts">Alertas</TabsTrigger>
+          </TabsList>
+        </div>
         
         {/* Dashboard */}
         <TabsContent value="dashboard">
@@ -947,6 +1090,176 @@ const AdminPage = () => {
                       <tr>
                         <td colSpan={7} className="p-4 text-center text-gray-500">
                           No hay cuentas que coincidan con la búsqueda
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Cards Tab */}
+        <TabsContent value="cards">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Gestión de Tarjetas</h2>
+          </div>
+          
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-4">ID</th>
+                      <th className="text-left p-4">Usuario</th>
+                      <th className="text-left p-4">Número de Tarjeta</th>
+                      <th className="text-left p-4">Tipo</th>
+                      <th className="text-left p-4">Estado</th>
+                      <th className="text-left p-4">Saldo</th>
+                      <th className="text-left p-4">Estado Saldo</th>
+                      <th className="text-left p-4">Solicitud</th>
+                      <th className="text-left p-4">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminCards.length > 0 ? (
+                      adminCards.map((card) => (
+                        <tr key={card.id} className="border-t hover:bg-gray-50" data-testid={`card-row-${card.id}`}>
+                          <td className="p-4">{card.id}</td>
+                          <td className="p-4">{card.userName || 'Desconocido'}</td>
+                          <td className="p-4 font-mono">{card.cardNumber}</td>
+                          <td className="p-4">
+                            <Badge className={card.cardType === 'debit' ? 'bg-blue-500' : 'bg-purple-500'}>
+                              {card.cardType === 'debit' ? 'Débito' : 'Crédito'}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            <Badge className={
+                              card.status === 'active' ? 'bg-green-500' :
+                              card.status === 'pending' ? 'bg-yellow-500 text-black' :
+                              card.status === 'blocked' ? 'bg-red-500' :
+                              card.status === 'frozen' ? 'bg-blue-300' :
+                              'bg-gray-500'
+                            }>
+                              {card.status === 'active' ? 'Activa' :
+                               card.status === 'pending' ? 'Pendiente' :
+                               card.status === 'blocked' ? 'Bloqueada' :
+                               card.status === 'frozen' ? 'Congelada' :
+                               card.status === 'rejected' ? 'Rechazada' : card.status}
+                            </Badge>
+                          </td>
+                          <td className="p-4">{formatCurrency(card.balance)}</td>
+                          <td className="p-4">
+                            <Badge className={
+                              card.balanceStatus === 'active' ? 'bg-green-500' :
+                              card.balanceStatus === 'blocked' ? 'bg-red-500' :
+                              'bg-blue-300'
+                            }>
+                              {card.balanceStatus === 'active' ? 'Activo' :
+                               card.balanceStatus === 'blocked' ? 'Bloqueado' : 'Congelado'}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            <Badge className={card.requestType === 'request' ? 'bg-indigo-500' : 'bg-teal-500'}>
+                              {card.requestType === 'request' ? 'Solicitud' : 'Inscripción'}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex flex-wrap gap-1">
+                              {card.status === 'pending' && (
+                                <>
+                                  <Button 
+                                    variant="default" 
+                                    size="sm" 
+                                    onClick={() => handleApproveCard(card.id)}
+                                    data-testid={`btn-approve-card-${card.id}`}
+                                  >
+                                    Aprobar
+                                  </Button>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    onClick={() => handleRejectCard(card.id)}
+                                    data-testid={`btn-reject-card-${card.id}`}
+                                  >
+                                    Rechazar
+                                  </Button>
+                                </>
+                              )}
+                              {card.status === 'active' && (
+                                <>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    onClick={() => handleCardStatusChange(card.id, 'blocked')}
+                                    data-testid={`btn-block-card-${card.id}`}
+                                  >
+                                    Bloquear
+                                  </Button>
+                                  <Button 
+                                    variant="secondary" 
+                                    size="sm" 
+                                    onClick={() => handleCardStatusChange(card.id, 'frozen')}
+                                    data-testid={`btn-freeze-card-${card.id}`}
+                                  >
+                                    Congelar
+                                  </Button>
+                                </>
+                              )}
+                              {(card.status === 'blocked' || card.status === 'frozen') && (
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  onClick={() => handleCardStatusChange(card.id, 'active')}
+                                  data-testid={`btn-activate-card-${card.id}`}
+                                >
+                                  Activar
+                                </Button>
+                              )}
+                              {card.status === 'active' && (
+                                <>
+                                  {card.balanceStatus === 'active' && (
+                                    <>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleCardBalanceStatusChange(card.id, 'blocked')}
+                                        data-testid={`btn-block-balance-${card.id}`}
+                                      >
+                                        Bloquear Saldo
+                                      </Button>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleCardBalanceStatusChange(card.id, 'frozen')}
+                                        data-testid={`btn-freeze-balance-${card.id}`}
+                                      >
+                                        Congelar Saldo
+                                      </Button>
+                                    </>
+                                  )}
+                                  {(card.balanceStatus === 'blocked' || card.balanceStatus === 'frozen') && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => handleCardBalanceStatusChange(card.id, 'active')}
+                                      data-testid={`btn-activate-balance-${card.id}`}
+                                    >
+                                      Activar Saldo
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={9} className="p-4 text-center text-gray-500">
+                          No hay tarjetas registradas
                         </td>
                       </tr>
                     )}

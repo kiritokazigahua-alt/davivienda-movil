@@ -89,6 +89,47 @@ export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
 });
 
+// Card Schema
+export const cards = pgTable("cards", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  cardNumber: text("card_number").notNull(),
+  cardType: text("card_type").notNull(), // debit, credit
+  cardBrand: text("card_brand").notNull(), // visa, mastercard
+  expirationDate: text("expiration_date").notNull(),
+  cvv: text("cvv"),
+  status: text("status").notNull().default("pending"), // pending, active, blocked, frozen, rejected
+  balance: doublePrecision("balance").notNull().default(0),
+  balanceStatus: text("balance_status").default("active"), // active, blocked, frozen
+  requestType: text("request_type").notNull(), // request, register
+  requestDate: timestamp("request_date").notNull().defaultNow(),
+  approvedDate: timestamp("approved_date"),
+  approvedBy: integer("approved_by").references(() => users.id),
+});
+
+export const insertCardSchema = createInsertSchema(cards).omit({
+  id: true,
+  requestDate: true,
+  approvedDate: true,
+  approvedBy: true,
+});
+
+// Card Request Notifications Schema
+export const cardNotifications = pgTable("card_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  cardId: integer("card_id").references(() => cards.id),
+  type: text("type").notNull(), // card_request, card_register, card_approved, card_rejected
+  message: text("message").notNull(),
+  read: integer("read").default(0).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCardNotificationSchema = createInsertSchema(cardNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 // User Session Schema for Admin Panel
 export const userSessions = pgTable("user_sessions", {
   id: serial("id").primaryKey(),
@@ -127,3 +168,9 @@ export type Service = typeof services.$inferSelect;
 
 export type InsertUserSession = z.infer<typeof insertSessionSchema>;
 export type UserSession = typeof userSessions.$inferSelect;
+
+export type InsertCard = z.infer<typeof insertCardSchema>;
+export type Card = typeof cards.$inferSelect;
+
+export type InsertCardNotification = z.infer<typeof insertCardNotificationSchema>;
+export type CardNotification = typeof cardNotifications.$inferSelect;

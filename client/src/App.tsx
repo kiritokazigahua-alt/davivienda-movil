@@ -15,6 +15,7 @@ import CertificadosPage from "@/pages/certificados";
 import QrPage from "@/pages/qr";
 import QrPaymentPage from "@/pages/qr-payment";
 import AdminPage from "@/pages/admin";
+import CardsPage from "@/pages/cards";
 import NotFound from "@/pages/not-found";
 
 // Layouts
@@ -103,6 +104,7 @@ function App() {
             <Route path="/certificados" component={AdminPage} />
             <Route path="/qr" component={AdminPage} />
             <Route path="/qr-payment" component={AdminPage} />
+            <Route path="/cards" component={AdminPage} />
           </>
         )}
         
@@ -183,6 +185,14 @@ function App() {
           <Route path="/qr-payment">
             <AppLayout>
               <QrPaymentPage />
+            </AppLayout>
+          </Route>
+        )}
+        
+        {isAuthenticated && !isAdmin && (
+          <Route path="/cards">
+            <AppLayout>
+              <CardsPage />
             </AppLayout>
           </Route>
         )}

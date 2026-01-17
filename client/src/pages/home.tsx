@@ -222,6 +222,13 @@ const HomePage = () => {
                   <p className="text-xs text-center">Retirar sin tarjeta</p>
                 </button>
                 
+                <button onClick={() => navigate('/cards')} data-testid="link-cards" className="flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full border border-red-500 flex items-center justify-center mb-1">
+                    <CreditCard size={18} className="text-red-500" />
+                  </div>
+                  <p className="text-xs text-center text-red-500 font-medium">Mis Tarjetas</p>
+                </button>
+                
                 <button onClick={() => navigate('/history')} className="flex flex-col items-center">
                   <div className="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center mb-1">
                     <FileText size={18} className="text-gray-500" />

@@ -38,7 +38,8 @@ Preferred communication style: Simple, everyday language.
 - **Bill Payments**: Utility payments (electricity, water, etc.) with service integration
 - **QR Code**: QR-based money transfers and payments
 - **Mobile Recharges**: Cellular and transport card top-ups
-- **Admin Panel**: Administrative interface for user and transaction management
+- **Card Management**: Users can request new cards or register existing cards (pending admin approval). Cards can be debit/credit, Visa/Mastercard with status tracking (pending, active, blocked, frozen, rejected)
+- **Admin Panel**: Administrative interface for user, transaction, and card management including card approval/rejection, status changes, and balance control
 - **Real-time Updates**: WebSocket integration for live notifications
 
 ### Security Implementation

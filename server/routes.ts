@@ -868,6 +868,307 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CARD ROUTES (Admin)
+  app.get("/api/admin/cards", async (req: Request, res: Response) => {
+    try {
+      const cards = await storage.getAllCards();
+      
+      // Enrich cards with user information
+      const enrichedCards = await Promise.all(cards.map(async (card) => {
+        const user = await storage.getUser(card.userId);
+        return {
+          ...card,
+          userName: user ? user.name : null,
+          userDocument: user ? user.document : null
+        };
+      }));
+      
+      res.status(200).json(enrichedCards);
+    } catch (error) {
+      console.error("Error obteniendo tarjetas:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.get("/api/admin/cards/pending", async (req: Request, res: Response) => {
+    try {
+      const cards = await storage.getPendingCards();
+      
+      // Enrich cards with user information
+      const enrichedCards = await Promise.all(cards.map(async (card) => {
+        const user = await storage.getUser(card.userId);
+        return {
+          ...card,
+          userName: user ? user.name : null,
+          userDocument: user ? user.document : null
+        };
+      }));
+      
+      res.status(200).json(enrichedCards);
+    } catch (error) {
+      console.error("Error obteniendo tarjetas pendientes:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/cards/:id/approve", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      const adminId = req.session.userId || 1;
+      
+      const card = await storage.approveCard(cardId, adminId);
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      // Create notification for user
+      await storage.createCardNotification({
+        userId: card.userId,
+        cardId: card.id,
+        type: "card_approved",
+        message: `Su tarjeta ha sido aprobada y está activa.`,
+        read: 0
+      });
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error aprobando tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/cards/:id/reject", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      
+      const card = await storage.rejectCard(cardId);
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      // Create notification for user
+      await storage.createCardNotification({
+        userId: card.userId,
+        cardId: card.id,
+        type: "card_rejected",
+        message: `Su solicitud de tarjeta ha sido rechazada.`,
+        read: 0
+      });
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error rechazando tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/cards/:id/status", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Estado es requerido" });
+      }
+      
+      const card = await storage.updateCardStatus(cardId, status);
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      // Create notification for user
+      const statusMessages: { [key: string]: string } = {
+        'active': 'Su tarjeta ha sido activada.',
+        'blocked': 'Su tarjeta ha sido bloqueada.',
+        'frozen': 'Su tarjeta ha sido congelada.',
+        'pending': 'Su tarjeta está pendiente de revisión.'
+      };
+      
+      await storage.createCardNotification({
+        userId: card.userId,
+        cardId: card.id,
+        type: `card_${status}`,
+        message: statusMessages[status] || `Estado de tarjeta actualizado a ${status}.`,
+        read: 0
+      });
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error actualizando estado de tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/cards/:id/balance", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      const { balance } = req.body;
+      
+      if (balance === undefined) {
+        return res.status(400).json({ message: "Saldo es requerido" });
+      }
+      
+      const card = await storage.updateCardBalance(cardId, Number(balance));
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error actualizando saldo de tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/cards/:id/balance-status", async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      const { balanceStatus } = req.body;
+      
+      if (!balanceStatus) {
+        return res.status(400).json({ message: "Estado de saldo es requerido" });
+      }
+      
+      const card = await storage.updateCardBalanceStatus(cardId, balanceStatus);
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      // Create notification for user
+      const statusMessages: { [key: string]: string } = {
+        'active': 'El saldo de su tarjeta está activo.',
+        'blocked': 'El saldo de su tarjeta ha sido bloqueado.',
+        'frozen': 'El saldo de su tarjeta ha sido congelado.'
+      };
+      
+      await storage.createCardNotification({
+        userId: card.userId,
+        cardId: card.id,
+        type: `balance_${balanceStatus}`,
+        message: statusMessages[balanceStatus] || `Estado de saldo actualizado.`,
+        read: 0
+      });
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error actualizando estado de saldo:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.get("/api/admin/card-notifications", async (req: Request, res: Response) => {
+    try {
+      const notifications = await storage.getAllCardNotifications();
+      res.status(200).json(notifications);
+    } catch (error) {
+      console.error("Error obteniendo notificaciones de tarjetas:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  // CARD ROUTES (User)
+  app.get("/api/cards", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const cards = await storage.getCardsByUserId(userId);
+      res.status(200).json(cards);
+    } catch (error) {
+      console.error("Error obteniendo tarjetas:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.post("/api/cards/request", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      
+      // Create a pending card request
+      const card = await storage.createCard({
+        userId,
+        cardNumber: "****-****-****-" + Math.floor(1000 + Math.random() * 9000),
+        cardType: req.body.cardType || "debit",
+        cardBrand: req.body.cardBrand || "visa",
+        expirationDate: "00/00",
+        status: "pending",
+        balance: 0,
+        balanceStatus: "active",
+        requestType: "request"
+      });
+      
+      // Create admin notification
+      await storage.createCardNotification({
+        userId: 1, // Admin
+        cardId: card.id,
+        type: "card_request",
+        message: `Usuario ${user?.name || userId} ha solicitado una nueva tarjeta.`,
+        read: 0
+      });
+      
+      // Broadcast to admin
+      (global as any).broadcastAdminNotification(`[TARJETA] Nueva solicitud de tarjeta de ${user?.name || 'Usuario'}`);
+      
+      res.status(201).json(card);
+    } catch (error) {
+      console.error("Error solicitando tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.post("/api/cards/register", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      const { cardNumber, cardType, cardBrand, expirationDate, cvv } = req.body;
+      
+      if (!cardNumber || !expirationDate) {
+        return res.status(400).json({ message: "Datos de tarjeta incompletos" });
+      }
+      
+      // Create a pending card registration
+      const card = await storage.createCard({
+        userId,
+        cardNumber,
+        cardType: cardType || "debit",
+        cardBrand: cardBrand || "visa",
+        expirationDate,
+        cvv,
+        status: "pending",
+        balance: 0,
+        balanceStatus: "active",
+        requestType: "register"
+      });
+      
+      // Create admin notification
+      await storage.createCardNotification({
+        userId: 1, // Admin
+        cardId: card.id,
+        type: "card_register",
+        message: `Usuario ${user?.name || userId} está intentando inscribir una tarjeta: ${cardNumber}`,
+        read: 0
+      });
+      
+      // Broadcast to admin
+      (global as any).broadcastAdminNotification(`[TARJETA] Usuario ${user?.name || 'Usuario'} inscribiendo tarjeta: ${cardNumber}`);
+      
+      res.status(201).json(card);
+    } catch (error) {
+      console.error("Error inscribiendo tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.get("/api/card-notifications", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const notifications = await storage.getCardNotificationsByUserId(userId);
+      res.status(200).json(notifications);
+    } catch (error) {
+      console.error("Error obteniendo notificaciones:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // SERVICE ROUTES
   app.get("/api/services", isAuthenticated, async (req: Request, res: Response) => {
     try {
