@@ -51,6 +51,8 @@ Preferred communication style: Simple, everyday language.
 - Fixed activity log display to show login/logout events from session history
 - Added isAdmin middleware to protect admin-only API routes
 - Settings tab loads current values when clicked
+- Added currency-based bank selection: Banks shown in transfers depend on account currency (COP, USD, EUR, GBP, BRL)
+- Proper currency formatting using Intl.NumberFormat for all currencies
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management
