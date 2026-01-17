@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, MessageCircleIcon, AlertCircle } from 'lucide-react';
 import { Account } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CURRENCIES, CurrencyCode } from '@shared/schema';
 
 const TransfersPage = () => {
   const [_, navigate] = useLocation();
@@ -70,9 +71,22 @@ const TransfersPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/account'] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+      const currency = account?.currency || "COP";
+      const localeMap: Record<string, string> = {
+        COP: "es-CO",
+        USD: "en-US",
+        EUR: "de-DE",
+        GBP: "en-GB",
+        BRL: "pt-BR"
+      };
+      const locale = localeMap[currency] || "es-CO";
+      const formattedAmount = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: currency
+      }).format(parseFloat(amount));
       toast({
         title: "Transferencia exitosa",
-        description: `Se ha transferido ${parseFloat(amount).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} exitosamente.`,
+        description: `Se ha transferido ${formattedAmount} exitosamente.`,
       });
       setAmount('');
       setBank('');
@@ -119,18 +133,124 @@ const TransfersPage = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  const bankOptions = [
-    { value: "davivienda", label: "Davivienda" },
-    { value: "bancolombia", label: "Bancolombia" },
-    { value: "bbva", label: "BBVA Colombia" },
-    { value: "occidente", label: "Banco de Occidente" },
-    { value: "bogota", label: "Banco de Bogotá" },
-    { value: "popular", label: "Banco Popular" },
-    { value: "avvillas", label: "Banco AV Villas" },
-    { value: "caja-social", label: "Banco Caja Social" },
-    { value: "colpatria", label: "Scotiabank Colpatria" },
-    { value: "falabella", label: "Banco Falabella" }
-  ];
+  // Banks organized by currency
+  const banksByCurrency: Record<string, Array<{ value: string; label: string; country?: string }>> = {
+    // Colombian Peso - Colombian banks
+    COP: [
+      { value: "davivienda", label: "Davivienda", country: "Colombia" },
+      { value: "bancolombia", label: "Bancolombia", country: "Colombia" },
+      { value: "bbva-colombia", label: "BBVA Colombia", country: "Colombia" },
+      { value: "occidente", label: "Banco de Occidente", country: "Colombia" },
+      { value: "bogota", label: "Banco de Bogotá", country: "Colombia" },
+      { value: "popular", label: "Banco Popular", country: "Colombia" },
+      { value: "avvillas", label: "Banco AV Villas", country: "Colombia" },
+      { value: "caja-social", label: "Banco Caja Social", country: "Colombia" },
+      { value: "colpatria", label: "Scotiabank Colpatria", country: "Colombia" },
+      { value: "falabella", label: "Banco Falabella", country: "Colombia" },
+      { value: "nequi", label: "Nequi", country: "Colombia" },
+      { value: "daviplata", label: "DaviPlata", country: "Colombia" }
+    ],
+    // US Dollar - US banks and fintechs
+    USD: [
+      { value: "chase", label: "JPMorgan Chase", country: "Estados Unidos" },
+      { value: "bank-of-america", label: "Bank of America", country: "Estados Unidos" },
+      { value: "wells-fargo", label: "Wells Fargo", country: "Estados Unidos" },
+      { value: "citibank", label: "Citibank", country: "Estados Unidos" },
+      { value: "us-bank", label: "U.S. Bank", country: "Estados Unidos" },
+      { value: "pnc", label: "PNC Bank", country: "Estados Unidos" },
+      { value: "capital-one", label: "Capital One", country: "Estados Unidos" },
+      { value: "td-bank", label: "TD Bank", country: "Estados Unidos" },
+      { value: "truist", label: "Truist Bank", country: "Estados Unidos" },
+      { value: "charles-schwab", label: "Charles Schwab", country: "Estados Unidos" },
+      { value: "zelle", label: "Zelle", country: "Estados Unidos" },
+      { value: "venmo", label: "Venmo", country: "Estados Unidos" },
+      { value: "paypal", label: "PayPal", country: "Estados Unidos" },
+      { value: "cash-app", label: "Cash App", country: "Estados Unidos" },
+      { value: "chime", label: "Chime", country: "Estados Unidos" },
+      { value: "wise-usd", label: "Wise (USD)", country: "Estados Unidos" }
+    ],
+    // Euro - European banks (Spain, Germany, France, Italy, etc.)
+    EUR: [
+      // Spain
+      { value: "santander", label: "Banco Santander", country: "España" },
+      { value: "bbva-espana", label: "BBVA España", country: "España" },
+      { value: "caixabank", label: "CaixaBank", country: "España" },
+      { value: "sabadell", label: "Banco Sabadell", country: "España" },
+      { value: "bankinter", label: "Bankinter", country: "España" },
+      { value: "ing-espana", label: "ING España", country: "España" },
+      { value: "openbank", label: "Openbank", country: "España" },
+      { value: "evo-banco", label: "EVO Banco", country: "España" },
+      // Germany
+      { value: "deutsche-bank", label: "Deutsche Bank", country: "Alemania" },
+      { value: "commerzbank", label: "Commerzbank", country: "Alemania" },
+      { value: "ing-germany", label: "ING Germany", country: "Alemania" },
+      { value: "n26", label: "N26", country: "Alemania" },
+      { value: "dkb", label: "DKB", country: "Alemania" },
+      // France
+      { value: "bnp-paribas", label: "BNP Paribas", country: "Francia" },
+      { value: "credit-agricole", label: "Crédit Agricole", country: "Francia" },
+      { value: "societe-generale", label: "Société Générale", country: "Francia" },
+      { value: "credit-mutuel", label: "Crédit Mutuel", country: "Francia" },
+      // Italy
+      { value: "unicredit", label: "UniCredit", country: "Italia" },
+      { value: "intesa-sanpaolo", label: "Intesa Sanpaolo", country: "Italia" },
+      // Netherlands
+      { value: "ing-netherlands", label: "ING Netherlands", country: "Países Bajos" },
+      { value: "abn-amro", label: "ABN AMRO", country: "Países Bajos" },
+      { value: "rabobank", label: "Rabobank", country: "Países Bajos" },
+      // European fintechs
+      { value: "revolut", label: "Revolut", country: "Europa" },
+      { value: "wise-eur", label: "Wise (EUR)", country: "Europa" },
+      { value: "bunq", label: "Bunq", country: "Europa" }
+    ],
+    // British Pound - UK banks
+    GBP: [
+      { value: "hsbc-uk", label: "HSBC UK", country: "Reino Unido" },
+      { value: "barclays", label: "Barclays", country: "Reino Unido" },
+      { value: "lloyds", label: "Lloyds Bank", country: "Reino Unido" },
+      { value: "natwest", label: "NatWest", country: "Reino Unido" },
+      { value: "santander-uk", label: "Santander UK", country: "Reino Unido" },
+      { value: "halifax", label: "Halifax", country: "Reino Unido" },
+      { value: "tsb", label: "TSB", country: "Reino Unido" },
+      { value: "monzo", label: "Monzo", country: "Reino Unido" },
+      { value: "starling", label: "Starling Bank", country: "Reino Unido" },
+      { value: "revolut-uk", label: "Revolut UK", country: "Reino Unido" },
+      { value: "wise-gbp", label: "Wise (GBP)", country: "Reino Unido" }
+    ],
+    // Brazilian Real - Brazilian banks
+    BRL: [
+      { value: "itau", label: "Itaú Unibanco", country: "Brasil" },
+      { value: "bradesco", label: "Bradesco", country: "Brasil" },
+      { value: "banco-do-brasil", label: "Banco do Brasil", country: "Brasil" },
+      { value: "caixa", label: "Caixa Econômica", country: "Brasil" },
+      { value: "santander-brasil", label: "Santander Brasil", country: "Brasil" },
+      { value: "nubank", label: "Nubank", country: "Brasil" },
+      { value: "inter", label: "Banco Inter", country: "Brasil" },
+      { value: "c6-bank", label: "C6 Bank", country: "Brasil" },
+      { value: "picpay", label: "PicPay", country: "Brasil" },
+      { value: "mercado-pago", label: "Mercado Pago", country: "Brasil" }
+    ]
+  };
+
+  // Get banks based on account currency, default to COP
+  const accountCurrency = account?.currency || "COP";
+  const bankOptions = banksByCurrency[accountCurrency] || banksByCurrency.COP;
+  
+  // Currency formatting helper
+  const formatCurrency = (value: number, currency: string) => {
+    const localeMap: Record<string, string> = {
+      COP: "es-CO",
+      USD: "en-US",
+      EUR: "de-DE",
+      GBP: "en-GB",
+      BRL: "pt-BR"
+    };
+    const locale = localeMap[currency] || "es-CO";
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: currency
+    }).format(value);
+  };
 
   const accountTypeOptions = [
     { value: "ahorros", label: "Cuenta de Ahorros" },
@@ -199,7 +319,7 @@ const TransfersPage = () => {
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
           <p className="text-sm text-gray-600">Saldo disponible</p>
           <p className="text-2xl font-bold">
-            {account ? `$${account.balance.toLocaleString('es-CO')}` : 'Cargando...'}
+            {account ? formatCurrency(account.balance, accountCurrency) : 'Cargando...'}
           </p>
         </div>
         
@@ -226,16 +346,19 @@ const TransfersPage = () => {
             
             <div>
               <Label className="block text-sm font-medium text-gray-700 mb-1">
-                Banco
+                Banco {accountCurrency !== "COP" && <span className="text-xs text-gray-500">({accountCurrency})</span>}
               </Label>
               <Select value={bank} onValueChange={setBank} required>
-                <SelectTrigger id="bank">
+                <SelectTrigger id="bank" data-testid="select-bank">
                   <SelectValue placeholder="Seleccionar banco" />
                 </SelectTrigger>
                 <SelectContent>
                   {bankOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                    <SelectItem key={option.value} value={option.value} data-testid={`bank-option-${option.value}`}>
+                      <div className="flex flex-col">
+                        <span>{option.label}</span>
+                        {option.country && <span className="text-xs text-gray-500">{option.country}</span>}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -277,10 +400,12 @@ const TransfersPage = () => {
 
             <div>
               <Label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Monto
+                Monto ({accountCurrency})
               </Label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                  {CURRENCIES[accountCurrency as CurrencyCode]?.symbol || "$"}
+                </span>
                 <Input
                   id="amount"
                   type="text"
@@ -289,6 +414,7 @@ const TransfersPage = () => {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
+                  data-testid="input-amount"
                 />
               </div>
             </div>
