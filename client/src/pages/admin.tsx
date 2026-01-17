@@ -56,6 +56,22 @@ const AdminPage = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
+  const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
+  const [supportPhone, setSupportPhone] = useState("+573181527700");
+  const [isCreateCardDialogOpen, setIsCreateCardDialogOpen] = useState(false);
+  const [isEditCardDialogOpen, setIsEditCardDialogOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<ExtendedCard | null>(null);
+  const [newCardData, setNewCardData] = useState({
+    userId: 0,
+    cardNumber: "",
+    cardType: "debit",
+    cardBrand: "visa",
+    expirationDate: "",
+    cvv: "",
+    status: "active",
+    balance: 0,
+    balanceStatus: "active"
+  });
   const [statistics, setStatistics] = useState<any>({
     totalUsers: 0,
     activeAccounts: 0,
@@ -221,6 +237,25 @@ const AdminPage = () => {
       showLoading("Cargando información...");
       const stats = await apiRequest("GET", "/api/admin/statistics");
       setStatistics(await stats.json());
+      
+      // Fetch recent sessions for activity log
+      const sessionsResponse = await apiRequest("GET", "/api/admin/sessions");
+      const sessionsData = await sessionsResponse.json();
+      
+      // Convert sessions to activity log format
+      const recentActivities = sessionsData.slice(0, 10).map((session: ExtendedUserSession) => {
+        const loginTime = new Date(session.loginTime).toLocaleString('es-CO');
+        if (session.logoutTime) {
+          const logoutTime = new Date(session.logoutTime).toLocaleString('es-CO');
+          return `[LOGOUT] ${session.userName || 'Usuario'} cerró sesión - ${logoutTime}`;
+        } else {
+          return `[LOGIN] ${session.userName || 'Usuario'} inició sesión - ${loginTime}`;
+        }
+      });
+      
+      // Set the activity log with session data (will be updated by WebSocket for new events)
+      setNotifications(prev => prev.length === 0 ? recentActivities : prev);
+      
       hideLoading();
     } catch (error) {
       console.error("Error obteniendo estadísticas:", error);
@@ -318,6 +353,127 @@ const AdminPage = () => {
       toast({
         title: "Error",
         description: "No se pudieron cargar las tarjetas",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const fetchSettings = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/settings");
+      const data = await response.json();
+      setAppSettings(data);
+      const phoneSetting = data.find((s: any) => s.key === "support_phone");
+      if (phoneSetting) {
+        setSupportPhone(phoneSetting.value);
+      }
+    } catch (error) {
+      console.error("Error obteniendo configuraciones:", error);
+    }
+  };
+  
+  const handleSaveSupportPhone = async () => {
+    try {
+      showLoading("Guardando configuración...");
+      const response = await apiRequest("PUT", "/api/admin/settings/support_phone", {
+        value: supportPhone,
+        description: "Número de WhatsApp de soporte al cliente"
+      });
+      if (!response.ok) {
+        throw new Error("Error al guardar");
+      }
+      toast({
+        title: "Configuración guardada",
+        description: "El número de soporte ha sido actualizado",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la configuración",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleCreateCard = async () => {
+    try {
+      if (!newCardData.userId || !newCardData.cardNumber) {
+        toast({
+          title: "Error",
+          description: "Usuario y número de tarjeta son requeridos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      showLoading("Creando tarjeta...");
+      const response = await apiRequest("POST", "/api/admin/cards", newCardData);
+      if (!response.ok) {
+        throw new Error("Error al crear tarjeta");
+      }
+      
+      setIsCreateCardDialogOpen(false);
+      setNewCardData({
+        userId: 0,
+        cardNumber: "",
+        cardType: "debit",
+        cardBrand: "visa",
+        expirationDate: "",
+        cvv: "",
+        status: "active",
+        balance: 0,
+        balanceStatus: "active"
+      });
+      fetchCards();
+      toast({
+        title: "Tarjeta creada",
+        description: "La tarjeta ha sido creada exitosamente",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo crear la tarjeta",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleEditCard = async () => {
+    if (!editingCard) return;
+    
+    try {
+      showLoading("Actualizando tarjeta...");
+      const response = await apiRequest("PUT", `/api/admin/cards/${editingCard.id}`, {
+        cardNumber: editingCard.cardNumber,
+        cardType: editingCard.cardType,
+        cardBrand: editingCard.cardBrand,
+        expirationDate: editingCard.expirationDate,
+        cvv: editingCard.cvv,
+        status: editingCard.status,
+        balance: editingCard.balance,
+        balanceStatus: editingCard.balanceStatus
+      });
+      if (!response.ok) {
+        throw new Error("Error al actualizar tarjeta");
+      }
+      
+      setIsEditCardDialogOpen(false);
+      setEditingCard(null);
+      fetchCards();
+      toast({
+        title: "Tarjeta actualizada",
+        description: "La tarjeta ha sido actualizada exitosamente",
+      });
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la tarjeta",
         variant: "destructive",
       });
     }
@@ -783,6 +939,7 @@ const AdminPage = () => {
             <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>
             <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
             <TabsTrigger value="alerts">Alertas</TabsTrigger>
+            <TabsTrigger value="settings" onClick={fetchSettings}>Configuración</TabsTrigger>
           </TabsList>
         </div>
         
@@ -1104,6 +1261,12 @@ const AdminPage = () => {
         <TabsContent value="cards">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">Gestión de Tarjetas</h2>
+            <Button 
+              data-testid="button-create-card"
+              onClick={() => setIsCreateCardDialogOpen(true)}
+            >
+              Crear Tarjeta
+            </Button>
           </div>
           
           <Card>
@@ -1252,6 +1415,17 @@ const AdminPage = () => {
                                   )}
                                 </>
                               )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingCard(card);
+                                  setIsEditCardDialogOpen(true);
+                                }}
+                                data-testid={`btn-edit-card-${card.id}`}
+                              >
+                                Editar
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -1482,6 +1656,73 @@ const AdminPage = () => {
                 <p className="text-center text-gray-500">No hay alertas disponibles</p>
               )}
             </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Settings Tab */}
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuración del Sistema</CardTitle>
+              <CardDescription>
+                Ajuste las configuraciones generales del sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Support Phone */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Número de Soporte</h3>
+                <div className="flex items-center space-x-4">
+                  <Label htmlFor="supportPhone" className="w-48">
+                    WhatsApp de Soporte
+                  </Label>
+                  <Input
+                    id="supportPhone"
+                    data-testid="input-support-phone"
+                    value={supportPhone}
+                    onChange={(e) => setSupportPhone(e.target.value)}
+                    placeholder="+573181527700"
+                    className="max-w-xs"
+                  />
+                  <Button 
+                    data-testid="button-save-support-phone"
+                    onClick={handleSaveSupportPhone}
+                  >
+                    Guardar
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Este número aparecerá como botón de contacto para soporte en la página de inicio de los clientes.
+                </p>
+              </div>
+              
+              <hr />
+              
+              {/* All Settings Display */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Configuraciones Guardadas</h3>
+                {appSettings.length > 0 ? (
+                  <div className="space-y-2">
+                    {appSettings.map((setting) => (
+                      <div key={setting.key} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                        <div>
+                          <p className="font-medium">{setting.key}</p>
+                          <p className="text-sm text-gray-500">{setting.description || "Sin descripción"}</p>
+                        </div>
+                        <p className="text-sm font-mono bg-background px-2 py-1 rounded">{setting.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">No hay configuraciones guardadas</p>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" onClick={fetchSettings}>
+                Recargar Configuraciones
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
@@ -2063,6 +2304,293 @@ const AdminPage = () => {
               Cancelar
             </Button>
             <Button onClick={handleAddAlert}>Crear Alerta</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo para crear tarjeta */}
+      <Dialog open={isCreateCardDialogOpen} onOpenChange={setIsCreateCardDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Tarjeta</DialogTitle>
+            <DialogDescription>
+              Complete el formulario para crear una nueva tarjeta para un usuario
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardUserId" className="text-right">
+                Usuario
+              </Label>
+              <Select 
+                value={newCardData.userId.toString()}
+                onValueChange={(value) => setNewCardData({...newCardData, userId: parseInt(value)})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-card-user">
+                  <SelectValue placeholder="Seleccione un usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.filter(u => u.isAdmin !== 1).map((u) => (
+                    <SelectItem key={u.id} value={u.id.toString()}>
+                      {u.name} ({u.document})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardNumber" className="text-right">
+                Número
+              </Label>
+              <Input
+                id="cardNumber"
+                className="col-span-3"
+                data-testid="input-card-number"
+                value={newCardData.cardNumber}
+                onChange={(e) => setNewCardData({...newCardData, cardNumber: e.target.value})}
+                placeholder="****-****-****-****"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Tipo</Label>
+              <Select 
+                value={newCardData.cardType}
+                onValueChange={(value) => setNewCardData({...newCardData, cardType: value})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-card-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="debit">Débito</SelectItem>
+                  <SelectItem value="credit">Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Marca</Label>
+              <Select 
+                value={newCardData.cardBrand}
+                onValueChange={(value) => setNewCardData({...newCardData, cardBrand: value})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-card-brand">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="visa">Visa</SelectItem>
+                  <SelectItem value="mastercard">Mastercard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardExpiration" className="text-right">
+                Vencimiento
+              </Label>
+              <Input
+                id="cardExpiration"
+                className="col-span-3"
+                data-testid="input-card-expiration"
+                value={newCardData.expirationDate}
+                onChange={(e) => setNewCardData({...newCardData, expirationDate: e.target.value})}
+                placeholder="MM/AA"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardCvv" className="text-right">
+                CVV
+              </Label>
+              <Input
+                id="cardCvv"
+                className="col-span-3"
+                data-testid="input-card-cvv"
+                value={newCardData.cvv}
+                onChange={(e) => setNewCardData({...newCardData, cvv: e.target.value})}
+                placeholder="***"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardBalance" className="text-right">
+                Saldo
+              </Label>
+              <Input
+                id="cardBalance"
+                type="number"
+                className="col-span-3"
+                data-testid="input-card-balance"
+                value={newCardData.balance}
+                onChange={(e) => setNewCardData({...newCardData, balance: parseFloat(e.target.value) || 0})}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateCardDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button data-testid="button-submit-create-card" onClick={handleCreateCard}>
+              Crear Tarjeta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo para editar tarjeta */}
+      <Dialog open={isEditCardDialogOpen} onOpenChange={setIsEditCardDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Tarjeta</DialogTitle>
+            <DialogDescription>
+              Modifique la información de la tarjeta
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingCard && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Usuario</Label>
+                <div className="col-span-3 text-sm bg-muted p-2 rounded">
+                  {editingCard.userName || 'Usuario ID: ' + editingCard.userId}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="editCardNumber" className="text-right">
+                  Número
+                </Label>
+                <Input
+                  id="editCardNumber"
+                  className="col-span-3"
+                  data-testid="input-edit-card-number"
+                  value={editingCard.cardNumber}
+                  onChange={(e) => setEditingCard({...editingCard, cardNumber: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Tipo</Label>
+                <Select 
+                  value={editingCard.cardType}
+                  onValueChange={(value) => setEditingCard({...editingCard, cardType: value})}
+                >
+                  <SelectTrigger className="col-span-3" data-testid="select-edit-card-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="debit">Débito</SelectItem>
+                    <SelectItem value="credit">Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Marca</Label>
+                <Select 
+                  value={editingCard.cardBrand}
+                  onValueChange={(value) => setEditingCard({...editingCard, cardBrand: value})}
+                >
+                  <SelectTrigger className="col-span-3" data-testid="select-edit-card-brand">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="visa">Visa</SelectItem>
+                    <SelectItem value="mastercard">Mastercard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="editCardExpiration" className="text-right">
+                  Vencimiento
+                </Label>
+                <Input
+                  id="editCardExpiration"
+                  className="col-span-3"
+                  data-testid="input-edit-card-expiration"
+                  value={editingCard.expirationDate || ''}
+                  onChange={(e) => setEditingCard({...editingCard, expirationDate: e.target.value})}
+                  placeholder="MM/AA"
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="editCardCvv" className="text-right">
+                  CVV
+                </Label>
+                <Input
+                  id="editCardCvv"
+                  className="col-span-3"
+                  data-testid="input-edit-card-cvv"
+                  value={editingCard.cvv || ''}
+                  onChange={(e) => setEditingCard({...editingCard, cvv: e.target.value})}
+                  placeholder="***"
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Estado</Label>
+                <Select 
+                  value={editingCard.status}
+                  onValueChange={(value) => setEditingCard({...editingCard, status: value})}
+                >
+                  <SelectTrigger className="col-span-3" data-testid="select-edit-card-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Activa</SelectItem>
+                    <SelectItem value="blocked">Bloqueada</SelectItem>
+                    <SelectItem value="frozen">Congelada</SelectItem>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="rejected">Rechazada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="editCardBalance" className="text-right">
+                  Saldo
+                </Label>
+                <Input
+                  id="editCardBalance"
+                  type="number"
+                  className="col-span-3"
+                  data-testid="input-edit-card-balance"
+                  value={editingCard.balance}
+                  onChange={(e) => setEditingCard({...editingCard, balance: parseFloat(e.target.value) || 0})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Estado Saldo</Label>
+                <Select 
+                  value={editingCard.balanceStatus}
+                  onValueChange={(value) => setEditingCard({...editingCard, balanceStatus: value})}
+                >
+                  <SelectTrigger className="col-span-3" data-testid="select-edit-balance-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Activo</SelectItem>
+                    <SelectItem value="blocked">Bloqueado</SelectItem>
+                    <SelectItem value="frozen">Congelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditCardDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button data-testid="button-submit-edit-card" onClick={handleEditCard}>
+              Guardar Cambios
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

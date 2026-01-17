@@ -55,6 +55,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Check admin middleware
+  const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ message: "No autenticado" });
+    }
+    const user = await storage.getUser(req.session.userId);
+    if (!user || user.isAdmin !== 1) {
+      return res.status(403).json({ message: "No autorizado - Se requieren permisos de administrador" });
+    }
+    next();
+  };
+
   // AUTH ROUTES
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
@@ -1062,6 +1074,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json(notifications);
     } catch (error) {
       console.error("Error obteniendo notificaciones de tarjetas:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  // Admin create card directly for a user
+  app.post("/api/admin/cards", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const adminId = req.session.userId!;
+      const { userId, cardNumber, cardType, cardBrand, expirationDate, cvv, status, balance, balanceStatus } = req.body;
+      
+      if (!userId || !cardNumber || !cardType || !cardBrand) {
+        return res.status(400).json({ message: "Datos incompletos" });
+      }
+      
+      const card = await storage.createCard({
+        userId,
+        cardNumber,
+        cardType,
+        cardBrand,
+        expirationDate: expirationDate || "00/00",
+        cvv: cvv || "",
+        status: status || "active",
+        balance: balance || 0,
+        balanceStatus: balanceStatus || "active",
+        requestType: "admin"
+      });
+      
+      // Notify user
+      await storage.createCardNotification({
+        userId,
+        cardId: card.id,
+        type: "card_created",
+        message: "Se le ha asignado una nueva tarjeta.",
+        read: 0
+      });
+      
+      res.status(201).json(card);
+    } catch (error) {
+      console.error("Error creando tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  // Admin edit card
+  app.put("/api/admin/cards/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const cardId = parseInt(req.params.id);
+      const { cardNumber, cardType, cardBrand, expirationDate, cvv, status, balance, balanceStatus } = req.body;
+      
+      const card = await storage.updateCard(cardId, {
+        cardNumber,
+        cardType,
+        cardBrand,
+        expirationDate,
+        cvv,
+        status,
+        balance,
+        balanceStatus
+      });
+      
+      if (!card) {
+        return res.status(404).json({ message: "Tarjeta no encontrada" });
+      }
+      
+      res.status(200).json(card);
+    } catch (error) {
+      console.error("Error actualizando tarjeta:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  // SETTINGS ROUTES
+  app.get("/api/settings/:key", async (req: Request, res: Response) => {
+    try {
+      const setting = await storage.getSetting(req.params.key);
+      if (!setting) {
+        return res.status(404).json({ message: "Configuración no encontrada" });
+      }
+      res.status(200).json(setting);
+    } catch (error) {
+      console.error("Error obteniendo configuración:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.get("/api/admin/settings", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getAllSettings();
+      res.status(200).json(settings);
+    } catch (error) {
+      console.error("Error obteniendo configuraciones:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+  
+  app.put("/api/admin/settings/:key", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const adminId = req.session.userId!;
+      const { value, description } = req.body;
+      
+      if (!value) {
+        return res.status(400).json({ message: "Valor es requerido" });
+      }
+      
+      const setting = await storage.setSetting(req.params.key, value, description, adminId);
+      res.status(200).json(setting);
+    } catch (error) {
+      console.error("Error actualizando configuración:", error);
       res.status(500).json({ message: "Error en el servidor" });
     }
   });

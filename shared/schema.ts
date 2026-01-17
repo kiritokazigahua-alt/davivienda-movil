@@ -130,6 +130,21 @@ export const insertCardNotificationSchema = createInsertSchema(cardNotifications
   createdAt: true,
 });
 
+// App Settings Schema for Admin configurable settings
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
+export const insertAppSettingSchema = createInsertSchema(appSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // User Session Schema for Admin Panel
 export const userSessions = pgTable("user_sessions", {
   id: serial("id").primaryKey(),
@@ -174,3 +189,6 @@ export type Card = typeof cards.$inferSelect;
 
 export type InsertCardNotification = z.infer<typeof insertCardNotificationSchema>;
 export type CardNotification = typeof cardNotifications.$inferSelect;
+
+export type InsertAppSetting = z.infer<typeof insertAppSettingSchema>;
+export type AppSetting = typeof appSettings.$inferSelect;

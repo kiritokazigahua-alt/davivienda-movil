@@ -11,6 +11,7 @@ const HomePage = () => {
   const { user, account, transactions, beneficiaries, getAccount, getTransactions, getBeneficiaries } = useStore();
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [supportPhone, setSupportPhone] = useState("+573181527700");
   const { toast } = useToast();
   const [_, navigate] = useLocation();
 
@@ -31,6 +32,22 @@ const HomePage = () => {
     };
 
     fetchData();
+    
+    // Fetch support phone from settings
+    const fetchSupportPhone = async () => {
+      try {
+        const response = await fetch('/api/settings/support_phone');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            setSupportPhone(data.value);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching support phone:", error);
+      }
+    };
+    fetchSupportPhone();
   }, []);
 
   // Acciones para cada botón
@@ -61,12 +78,10 @@ const HomePage = () => {
   
   // Función para contactar a atención al cliente por WhatsApp
   const handleContactSupport = () => {
-    // Número de WhatsApp para atención al cliente (actualizado)
-    const phoneNumber = "+573181527700";
     // Mensaje predefinido con el código de error
     const message = "Hola, necesito ayuda con mi cuenta. Tengo un error #4004";
     // Crear la URL de WhatsApp con el número y mensaje
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${supportPhone}?text=${encodeURIComponent(message)}`;
     // Abrir WhatsApp en una nueva pestaña
     window.open(whatsappUrl, '_blank');
   };

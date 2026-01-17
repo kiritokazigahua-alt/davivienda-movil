@@ -6,7 +6,8 @@ import {
   services, Service, InsertService,
   userSessions, UserSession, InsertUserSession,
   cards, Card, InsertCard,
-  cardNotifications, CardNotification, InsertCardNotification
+  cardNotifications, CardNotification, InsertCardNotification,
+  appSettings, AppSetting, InsertAppSetting
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -73,6 +74,11 @@ export interface IStorage {
   getUnreadCardNotifications(): Promise<CardNotification[]>;
   markCardNotificationAsRead(id: number): Promise<CardNotification | undefined>;
   getAllCardNotifications(): Promise<CardNotification[]>;
+  
+  // App settings operations
+  getSetting(key: string): Promise<AppSetting | undefined>;
+  setSetting(key: string, value: string, description?: string, updatedBy?: number): Promise<AppSetting>;
+  getAllSettings(): Promise<AppSetting[]>;
   
   // Initialization
   initializeDefaultData(): Promise<void>;
@@ -441,6 +447,46 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(cardNotifications.createdAt));
   }
   
+  // App settings operations
+  async getSetting(key: string): Promise<AppSetting | undefined> {
+    const result = await db.select()
+      .from(appSettings)
+      .where(eq(appSettings.key, key));
+    return result[0];
+  }
+  
+  async setSetting(key: string, value: string, description?: string, updatedBy?: number): Promise<AppSetting> {
+    // Check if setting already exists
+    const existingSetting = await this.getSetting(key);
+    
+    if (existingSetting) {
+      // Update existing setting
+      const result = await db.update(appSettings)
+        .set({ 
+          value, 
+          description: description || existingSetting.description,
+          updatedAt: new Date(),
+          updatedBy: updatedBy || existingSetting.updatedBy
+        })
+        .where(eq(appSettings.key, key))
+        .returning();
+      return result[0];
+    } else {
+      // Create new setting
+      const result = await db.insert(appSettings).values({
+        key,
+        value,
+        description,
+        updatedBy
+      }).returning();
+      return result[0];
+    }
+  }
+  
+  async getAllSettings(): Promise<AppSetting[]> {
+    return await db.select().from(appSettings);
+  }
+  
   // Initialize default data if database is empty
   async initializeDefaultData(): Promise<void> {
     // Check if admin user exists
@@ -632,6 +678,9 @@ export class DatabaseStorage implements IStorage {
     for (const beneficiary of defaultBeneficiaries) {
       await this.createBeneficiary(beneficiary);
     }
+    
+    // Create default app settings
+    await this.setSetting("support_phone", "+573181527700", "Número de WhatsApp de soporte al cliente", adminUser.id);
     
     console.log("Default data initialized successfully");
   }
