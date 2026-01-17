@@ -40,7 +40,17 @@ Preferred communication style: Simple, everyday language.
 - **Mobile Recharges**: Cellular and transport card top-ups
 - **Card Management**: Users can request new cards or register existing cards (pending admin approval). Cards can be debit/credit, Visa/Mastercard with status tracking (pending, active, blocked, frozen, rejected)
 - **Admin Panel**: Administrative interface for user, transaction, and card management including card approval/rejection, status changes, and balance control
+- **Admin Settings**: Configurable application settings including support phone number
+- **Admin Card Management**: Direct card creation and editing capabilities for administrators
+- **Activity Log**: Session-based activity tracking displayed in admin dashboard
 - **Real-time Updates**: WebSocket integration for live notifications
+
+### Recent Changes (January 2026)
+- Added admin-configurable support phone number via appSettings table
+- Added admin card creation and editing dialogs
+- Fixed activity log display to show login/logout events from session history
+- Added isAdmin middleware to protect admin-only API routes
+- Settings tab loads current values when clicked
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management
