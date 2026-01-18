@@ -5,7 +5,7 @@ echo "Building frontend with Vite..."
 npx vite build
 
 echo "Building production server..."
-npx esbuild server/prod-server.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
+npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 
 echo "Creating CJS wrapper..."
 cat > dist/index.cjs << 'EOF'
