@@ -374,24 +374,37 @@ const AdminPage = () => {
   
   const handleSaveSupportPhone = async () => {
     try {
+      if (!supportPhone || supportPhone.trim() === "") {
+        toast({
+          title: "Error",
+          description: "El número no puede estar vacío",
+          variant: "destructive",
+        });
+        return;
+      }
       showLoading("Guardando configuración...");
       const response = await apiRequest("PUT", "/api/admin/settings/support_phone", {
-        value: supportPhone,
+        value: supportPhone.trim(),
         description: "Número de WhatsApp de soporte al cliente"
       });
       if (!response.ok) {
-        throw new Error("Error al guardar");
+        const errorData = await response.json().catch(() => null);
+        const errorMsg = errorData?.message || "Error al guardar";
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Sesión expirada. Cierre sesión y vuelva a iniciar como administrador.");
+        }
+        throw new Error(errorMsg);
       }
       toast({
         title: "Configuración guardada",
-        description: "El número de soporte ha sido actualizado",
+        description: `Número de soporte actualizado a: ${supportPhone.trim()}`,
       });
       hideLoading();
-    } catch (error) {
+    } catch (error: any) {
       hideLoading();
       toast({
         title: "Error",
-        description: "No se pudo guardar la configuración",
+        description: error?.message || "No se pudo guardar la configuración",
         variant: "destructive",
       });
     }

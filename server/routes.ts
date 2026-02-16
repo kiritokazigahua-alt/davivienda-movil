@@ -35,9 +35,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default data in database
   await storage.initializeDefaultData();
   
+  app.set('trust proxy', 1);
+  
   // Setup session middleware
   app.use(session({
-    cookie: { maxAge: 86400000 }, // 24 hours
+    cookie: { 
+      maxAge: 86400000,
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax'
+    },
     store: new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     }),
