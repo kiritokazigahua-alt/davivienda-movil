@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ScanLine, QrCode, Headphones, CreditCard, List, User, Fingerprint } from 'lucide-react';
-import { useSupportPhone } from '@/hooks/use-support-phone';
+import { usePublicSupportPhone } from '@/hooks/use-support-phone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 // SVG Casa Davivienda Logo (icono de la casa blanca)
@@ -41,7 +41,7 @@ const LoginPage = () => {
   const { login } = useStore();
   const [_, navigate] = useLocation();
   const { toast } = useToast();
-  const { callSupport, openWhatsApp } = useSupportPhone();
+  const { callSupport, openWhatsApp } = usePublicSupportPhone();
 
   const handleDocumentSubmit = () => {
     if (!username) {

@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, MessageCircleIcon, AlertCircle } from 'lucide-react';
 import { useSupportPhone } from '@/hooks/use-support-phone';
-import { useStore } from '@/lib/store';
 import { Account } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CURRENCIES, CurrencyCode } from '@shared/schema';

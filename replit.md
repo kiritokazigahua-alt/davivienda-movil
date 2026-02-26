@@ -42,17 +42,32 @@ Preferred communication style: Simple, everyday language.
 - **Admin Panel**: Administrative interface for user, transaction, and card management including card approval/rejection, status changes, and balance control
 - **Admin Settings**: Configurable application settings including support phone number
 - **Admin Card Management**: Direct card creation and editing capabilities for administrators
+- **Admin Cobros & Accesos**: Panel for managing charges (multas, cobros, promos, descuentos, accesos especiales) with amount, currency, interest rates, scheduled discounts and expiry dates
+- **Per-User Support Phone**: Admin can assign individual support WhatsApp numbers to users; falls back to global number
 - **Activity Log**: Session-based activity tracking displayed in admin dashboard
 - **Real-time Updates**: WebSocket integration for live notifications
+- **Support Phone Hook**: `useSupportPhone` hook (client/src/hooks/use-support-phone.ts) provides reactive support phone fetching with 30s polling, user-specific override support, and WhatsApp/call helpers
 
-### Recent Changes (January 2026)
-- Added admin-configurable support phone number via appSettings table
-- Added admin card creation and editing dialogs
-- Fixed activity log display to show login/logout events from session history
-- Added isAdmin middleware to protect admin-only API routes
-- Settings tab loads current values when clicked
-- Added currency-based bank selection: Banks shown in transfers depend on account currency (COP, USD, EUR, GBP, BRL)
-- Proper currency formatting using Intl.NumberFormat for all currencies
+### Support Phone Number
+- Default/current: `+573208646620`
+- Managed via `useSupportPhone` hook in all pages (home, profile, transfers, retirar, login)
+- Admin can update globally via Settings tab or per-user via Cobros & Accesos tab
+- Users see updated number within 30 seconds (polling interval)
+
+### Account Charges System
+- Table: `account_charges` in PostgreSQL
+- Types: multa, cobro, promo, descuento, acceso_especial
+- Features: amount, currency, interest rate, discount percent, scheduled dates, expiry
+- `applyToBalance=true` auto-deducts (cobro/multa) or adds (promo/descuento) to account balance
+- API: `GET/POST /api/admin/charges`, `DELETE /api/admin/charges/:id`, `GET /api/charges` (user)
+
+### Recent Changes (February 2026)
+- Updated support phone to +573208646620
+- Fixed support phone sync: useSupportPhone hook now polls every 30s so admin updates reflect to users
+- Added per-user support phone assignment (admin can set customSupportPhone per user)
+- Added Cobros & Accesos admin tab with full charge creation dialog
+- Added account_charges table with CRUD operations
+- Removed all hardcoded phone numbers across the app
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management

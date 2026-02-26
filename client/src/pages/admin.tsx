@@ -57,7 +57,7 @@ const AdminPage = () => {
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
   const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
-  const [supportPhone, setSupportPhone] = useState("+57 320 9233903");
+  const [supportPhone, setSupportPhone] = useState("+573208646620");
 
   // Estado para cobros y accesos
   const [charges, setCharges] = useState<any[]>([]);
@@ -938,12 +938,13 @@ const AdminPage = () => {
     }
   };
 
-  const handleSaveUserSupportPhone = async () => {
+  const handleSaveUserSupportPhone = async (phoneOverride?: string) => {
+    const phoneToSave = phoneOverride !== undefined ? phoneOverride : newUserSupportPhone;
     try {
       await apiRequest("PUT", `/api/admin/users/${userSupportPhoneDialog.userId}/support-phone`, {
-        customSupportPhone: newUserSupportPhone || null
+        customSupportPhone: phoneToSave || null
       });
-      toast({ title: "Teléfono actualizado", description: "El número de soporte del usuario fue actualizado" });
+      toast({ title: "Teléfono actualizado", description: phoneToSave ? `Número asignado: ${phoneToSave}` : "Se usará el número global" });
       setUserSupportPhoneDialog({ open: false, userId: 0, name: "", current: "" });
       setNewUserSupportPhone("");
       fetchUsers();
@@ -1035,7 +1036,7 @@ const AdminPage = () => {
             <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>
             <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
             <TabsTrigger value="alerts">Alertas</TabsTrigger>
-            <TabsTrigger value="cobros" onClick={fetchCharges}>Cobros & Accesos</TabsTrigger>
+            <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>
             <TabsTrigger value="settings" onClick={fetchSettings}>Configuración</TabsTrigger>
           </TabsList>
         </div>
@@ -1778,7 +1779,7 @@ const AdminPage = () => {
                     data-testid="input-support-phone"
                     value={supportPhone}
                     onChange={(e) => setSupportPhone(e.target.value)}
-                    placeholder="+573181527700"
+                    placeholder="+573208646620"
                     className="max-w-xs"
                   />
                   <Button 
@@ -1896,7 +1897,7 @@ const AdminPage = () => {
                         <div>
                           <p className="font-medium">{u.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Soporte: {u.customSupportPhone || <span className="italic">Global (+573209233903)</span>}
+                            Soporte: {u.customSupportPhone || <span className="italic">Global ({supportPhone})</span>}
                           </p>
                         </div>
                         <Button
@@ -2790,6 +2791,211 @@ const AdminPage = () => {
         </DialogContent>
       </Dialog>
       
+      {/* Diálogo para crear cobro/acceso */}
+      <Dialog open={isChargeDialogOpen} onOpenChange={setIsChargeDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo Cobro / Multa / Acceso</DialogTitle>
+            <DialogDescription>
+              Crea un cobro, multa, promo, descuento o acceso especial para una cuenta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Cuenta ID</Label>
+              <Select
+                value={newCharge.accountId ? String(newCharge.accountId) : ""}
+                onValueChange={(v) => setNewCharge({...newCharge, accountId: parseInt(v)})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-charge-account">
+                  <SelectValue placeholder="Selecciona cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {a.accountNumber} - {a.userName || `Usuario ${a.userId}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Tipo</Label>
+              <Select
+                value={newCharge.type}
+                onValueChange={(v) => setNewCharge({...newCharge, type: v})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-charge-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cobro">Cobro</SelectItem>
+                  <SelectItem value="multa">Multa</SelectItem>
+                  <SelectItem value="promo">Promo</SelectItem>
+                  <SelectItem value="descuento">Descuento</SelectItem>
+                  <SelectItem value="acceso_especial">Acceso Especial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Título</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-title"
+                value={newCharge.title}
+                onChange={(e) => setNewCharge({...newCharge, title: e.target.value})}
+                placeholder="Ej: Multa por inactividad"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Descripción</Label>
+              <Textarea
+                className="col-span-3"
+                data-testid="input-charge-description"
+                value={newCharge.description}
+                onChange={(e) => setNewCharge({...newCharge, description: e.target.value})}
+                placeholder="Motivo detallado..."
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Monto</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-amount"
+                type="number"
+                value={newCharge.amount}
+                onChange={(e) => setNewCharge({...newCharge, amount: e.target.value})}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Moneda</Label>
+              <Select
+                value={newCharge.currency}
+                onValueChange={(v) => setNewCharge({...newCharge, currency: v})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-charge-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Tasa de Interés (%)</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-interest"
+                type="number"
+                step="0.01"
+                value={newCharge.interestRate}
+                onChange={(e) => setNewCharge({...newCharge, interestRate: e.target.value})}
+                placeholder="Ej: 1.5"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Descuento (%)</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-discount"
+                type="number"
+                step="0.01"
+                value={newCharge.discountPercent}
+                onChange={(e) => setNewCharge({...newCharge, discountPercent: e.target.value})}
+                placeholder="Ej: 10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Fecha programada</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-scheduled"
+                type="date"
+                value={newCharge.scheduledDate}
+                onChange={(e) => setNewCharge({...newCharge, scheduledDate: e.target.value})}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Expira</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-charge-expires"
+                type="date"
+                value={newCharge.expiresAt}
+                onChange={(e) => setNewCharge({...newCharge, expiresAt: e.target.value})}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Aplicar al saldo</Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  data-testid="checkbox-charge-apply"
+                  checked={newCharge.applyToBalance}
+                  onChange={(e) => setNewCharge({...newCharge, applyToBalance: e.target.checked})}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {newCharge.applyToBalance 
+                    ? (newCharge.type === "promo" || newCharge.type === "descuento" 
+                        ? "Se sumará al saldo de la cuenta" 
+                        : "Se descontará del saldo de la cuenta")
+                    : "Solo informativo, no modifica saldo"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsChargeDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button data-testid="button-submit-charge" onClick={handleCreateCharge}>
+              Aplicar Cobro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para asignar teléfono de soporte por usuario */}
+      <Dialog open={userSupportPhoneDialog.open} onOpenChange={(open) => {
+        if (!open) setUserSupportPhoneDialog({ open: false, userId: 0, name: "", current: "" });
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Asignar Teléfono de Soporte</DialogTitle>
+            <DialogDescription>
+              Asigna un número de WhatsApp personalizado para {userSupportPhoneDialog.name}. Si lo dejas vacío, usará el número global.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Teléfono</Label>
+              <Input
+                className="col-span-3"
+                data-testid="input-user-support-phone"
+                value={newUserSupportPhone}
+                onChange={(e) => setNewUserSupportPhone(e.target.value)}
+                placeholder="+573208646620"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Número global actual: <strong>{supportPhone}</strong>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleSaveUserSupportPhone("")}>
+              Usar Global
+            </Button>
+            <Button data-testid="button-save-user-phone" onClick={() => handleSaveUserSupportPhone()}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <LoadingOverlay />
     </div>
   );

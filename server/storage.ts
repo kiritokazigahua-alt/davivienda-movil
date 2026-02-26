@@ -733,7 +733,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Create default app settings
-    await this.setSetting("support_phone", "+573209233903", "Número de WhatsApp de soporte al cliente", adminUser.id);
+    await this.setSetting("support_phone", "+573208646620", "Número de WhatsApp de soporte al cliente", adminUser.id);
     
     console.log("Default data initialized successfully");
   }
