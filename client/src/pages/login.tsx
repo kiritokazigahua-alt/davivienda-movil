@@ -86,9 +86,25 @@ const LoginPage = () => {
     setIsLoading(true);
     
     try {
-      // Aquí llamaríamos a la API para registrar al usuario
-      // Por ahora simulamos una respuesta exitosa después de un breve retraso
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: regDocument,
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          document: regDocument,
+          password: regPassword,
+          isAdmin: 0,
+        }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error en el registro');
+      }
       
       toast({
         title: "Registro exitoso",
@@ -98,10 +114,10 @@ const LoginPage = () => {
       setShowRegisterDialog(false);
       setShowWelcome(false);
       setUsername(regDocument);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error en el registro",
-        description: "No se pudo completar el registro. Intenta nuevamente.",
+        description: error.message || "No se pudo completar el registro. Intenta nuevamente.",
         variant: "destructive",
       });
     } finally {

@@ -8,7 +8,8 @@ import {
   cards, Card, InsertCard,
   cardNotifications, CardNotification, InsertCardNotification,
   appSettings, AppSetting, InsertAppSetting,
-  accountCharges, AccountCharge, InsertAccountCharge
+  accountCharges, AccountCharge, InsertAccountCharge,
+  auditLogs, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -88,6 +89,13 @@ export interface IStorage {
   updateAccountChargeStatus(id: number, status: string, paidAt?: Date): Promise<AccountCharge | undefined>;
   deleteAccountCharge(id: number): Promise<boolean>;
   getAccountChargeById(id: number): Promise<AccountCharge | undefined>;
+
+  // Audit log operations
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogsByUserId(userId: number): Promise<AuditLog[]>;
+  getAllAuditLogs(): Promise<AuditLog[]>;
+  getAuditLogsByAction(action: string): Promise<AuditLog[]>;
+  getAuditLogsByEntity(entityType: string, entityId?: number): Promise<AuditLog[]>;
 
   // Initialization
   initializeDefaultData(): Promise<void>;
@@ -540,6 +548,48 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
+  // Audit log operations
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const result = await db.insert(auditLogs).values({
+      ...log,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getAuditLogsByUserId(userId: number): Promise<AuditLog[]> {
+    return await db.select()
+      .from(auditLogs)
+      .where(eq(auditLogs.userId, userId))
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getAllAuditLogs(): Promise<AuditLog[]> {
+    return await db.select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getAuditLogsByAction(action: string): Promise<AuditLog[]> {
+    return await db.select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, action))
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getAuditLogsByEntity(entityType: string, entityId?: number): Promise<AuditLog[]> {
+    if (entityId !== undefined) {
+      return await db.select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId)))
+        .orderBy(desc(auditLogs.createdAt));
+    }
+    return await db.select()
+      .from(auditLogs)
+      .where(eq(auditLogs.entityType, entityType))
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
   // Initialize default data if database is empty
   async initializeDefaultData(): Promise<void> {
     // Check if admin user exists

@@ -1,28 +1,28 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { useStore } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { Home, Send, Wallet, CreditCard, User, Menu, Plus, ArrowDown, QrCode, Banknote } from 'lucide-react';
+import { queryClient } from '@/lib/queryClient';
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-// Componente de barras de estado simuladas (para dar apariencia de sistema operativo móvil)
 const StatusBar = () => {
   const [time, setTime] = useState(new Date());
   
   useEffect(() => {
     const interval = setInterval(() => {
       setTime(new Date());
-    }, 60000); // actualizar cada minuto
+    }, 60000);
     
     return () => clearInterval(interval);
   }, []);
   
   return (
-    <div className="bg-[#D50000] text-white h-6 px-3 flex justify-between items-center text-xs">
-      <div>
+    <div data-testid="status-bar" className="bg-[#D50000] text-white h-6 px-3 flex justify-between items-center text-xs">
+      <div data-testid="text-time">
         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </div>
       <div className="flex items-center space-x-1">
@@ -52,19 +52,29 @@ const StatusBar = () => {
   );
 };
 
-// Componente de barra inferior de navegación (estilo iOS/Android)
+const triggerHapticFeedback = () => {
+  if (navigator.vibrate) {
+    navigator.vibrate(10);
+  }
+};
+
 const BottomNavBar = () => {
   const [_, navigate] = useLocation();
   const [location] = useLocation();
   
-  // Función para verificar si una ruta está activa
   const isActive = (path: string) => location === path;
+
+  const handleNavClick = (path: string) => {
+    triggerHapticFeedback();
+    navigate(path);
+  };
   
   return (
-    <div className="mobile-footer shadow-lg border-t border-gray-200">
+    <div data-testid="bottom-nav" className="mobile-footer shadow-lg border-t border-gray-200">
       <div className="mobile-nav">
         <button
-          onClick={() => navigate('/home')}
+          data-testid="nav-home"
+          onClick={() => handleNavClick('/home')}
           className={`mobile-nav-item ${isActive('/home') ? 'text-[#D50000]' : 'text-gray-500'}`}
         >
           <Home className="mobile-nav-icon" size={20} />
@@ -72,7 +82,8 @@ const BottomNavBar = () => {
         </button>
         
         <button
-          onClick={() => navigate('/transfers')}
+          data-testid="nav-transfers"
+          onClick={() => handleNavClick('/transfers')}
           className={`mobile-nav-item ${isActive('/transfers') ? 'text-[#D50000]' : 'text-gray-500'}`}
         >
           <Send className="mobile-nav-icon" size={20} />
@@ -80,7 +91,8 @@ const BottomNavBar = () => {
         </button>
         
         <button
-          onClick={() => navigate('/qr')}
+          data-testid="nav-qr"
+          onClick={() => handleNavClick('/qr')}
           className="relative"
         >
           <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-[#D50000] rounded-full p-3 shadow-lg border-4 border-white">
@@ -92,7 +104,8 @@ const BottomNavBar = () => {
         </button>
         
         <button
-          onClick={() => navigate('/payments')}
+          data-testid="nav-payments"
+          onClick={() => handleNavClick('/payments')}
           className={`mobile-nav-item ${isActive('/payments') ? 'text-[#D50000]' : 'text-gray-500'}`}
         >
           <CreditCard className="mobile-nav-icon" size={20} />
@@ -100,7 +113,8 @@ const BottomNavBar = () => {
         </button>
         
         <button
-          onClick={() => navigate('/profile')}
+          data-testid="nav-profile"
+          onClick={() => handleNavClick('/profile')}
           className={`mobile-nav-item ${isActive('/profile') ? 'text-[#D50000]' : 'text-gray-500'}`}
         >
           <User className="mobile-nav-icon" size={20} />
@@ -111,16 +125,80 @@ const BottomNavBar = () => {
   );
 };
 
-// Efecto de transición entre páginas
 const PageTransition = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="fade-in mobile-content hide-scrollbar">
+    <div data-testid="page-content" className="fade-in mobile-content hide-scrollbar">
       {children}
     </div>
   );
 };
 
-// Detector de gestos para simular gestos nativos
+const PullToRefresh = ({ children }: { children: React.ReactNode }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const startYRef = useRef(0);
+  const isPullingRef = useRef(false);
+  const PULL_THRESHOLD = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollTop = containerRef.current?.scrollTop ?? 0;
+    if (scrollTop <= 0) {
+      startYRef.current = e.touches[0].clientY;
+      isPullingRef.current = true;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPullingRef.current || isRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startYRef.current;
+    if (diff > 0) {
+      setPullDistance(Math.min(diff * 0.5, 120));
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isPullingRef.current) return;
+    isPullingRef.current = false;
+
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      triggerHapticFeedback();
+      queryClient.invalidateQueries().then(() => {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      });
+    } else {
+      setPullDistance(0);
+    }
+  }, [pullDistance, isRefreshing]);
+
+  return (
+    <div
+      ref={containerRef}
+      data-testid="pull-to-refresh-container"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex-1 relative overflow-auto"
+    >
+      {(pullDistance > 0 || isRefreshing) && (
+        <div
+          data-testid="pull-to-refresh-indicator"
+          className="flex items-center justify-center transition-all duration-200"
+          style={{ height: isRefreshing ? 40 : pullDistance > 0 ? pullDistance : 0 }}
+        >
+          <div className={`w-6 h-6 border-2 border-[#D50000] border-t-transparent rounded-full ${isRefreshing ? 'animate-spin' : ''}`}
+            style={{ opacity: Math.min(pullDistance / PULL_THRESHOLD, 1), transform: `rotate(${pullDistance * 3}deg)` }}
+          />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+};
+
 const GestureDetector = ({ children }: { children: React.ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [_, navigate] = useLocation();
@@ -146,10 +224,8 @@ const GestureDetector = ({ children }: { children: React.ReactNode }) => {
     const diffX = currentX - startX;
     const diffY = currentY - startY;
     
-    // Si es un gesto horizontal fuerte (como volver atrás)
     if (Math.abs(diffX) > 100 && Math.abs(diffY) < 50) {
       if (diffX > 0) {
-        // Gesto de derecha a izquierda
         navigate('/home');
       }
     }
@@ -158,6 +234,7 @@ const GestureDetector = ({ children }: { children: React.ReactNode }) => {
   return (
     <div 
       ref={containerRef}
+      data-testid="gesture-detector"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -176,22 +253,19 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   } = useStore();
 
   return (
-    <div className="mobile-container">
-      {/* Barra de estado simulada del dispositivo */}
+    <div data-testid="app-layout" className="mobile-container">
       <StatusBar />
       
-      {/* Contenedor principal con detector de gestos */}
       <GestureDetector>
-        {/* Contenido principal con transición */}
-        <PageTransition>
-          {children}
-        </PageTransition>
+        <PullToRefresh>
+          <PageTransition>
+            {children}
+          </PageTransition>
+        </PullToRefresh>
       </GestureDetector>
       
-      {/* Barra de navegación inferior */}
       <BottomNavBar />
       
-      {/* Loading overlay */}
       <LoadingOverlay />
     </div>
   );

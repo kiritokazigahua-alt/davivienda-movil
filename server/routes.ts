@@ -75,6 +75,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  const createAuditLog = async (req: Request, action: string, details: string, entityType?: string, entityId?: number, userId?: number) => {
+    try {
+      await storage.createAuditLog({
+        userId: userId ?? req.session?.userId ?? null,
+        action,
+        details,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
+        userAgent: req.headers['user-agent'] || null,
+        entityType: entityType || null,
+        entityId: entityId || null,
+      });
+    } catch (e) {
+      console.error("Error creating audit log:", e);
+    }
+  };
+
   // AUTH ROUTES
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
@@ -109,6 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[LOGIN] Usuario "${user.name}" ha iniciado sesión (${timestamp})`);
       
+      await createAuditLog(req, "login", `Usuario "${user.name}" inició sesión`, "user", user.id, user.id);
+
       return res.status(200).json({ 
         message: "Login exitoso",
         user: {
@@ -117,7 +135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: user.email,
           document: user.document,
           phone: user.phone,
-          lastLogin: user.lastLogin
+          lastLogin: user.lastLogin,
+          isAdmin: user.isAdmin || 0
         }
       });
     } catch (error) {
@@ -152,6 +171,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[REGISTRO] Nuevo usuario "${user.name}" se ha registrado (${timestamp})`);
       
+      await createAuditLog(req, "register", `Nuevo usuario "${user.name}" registrado (doc: ${user.document})`, "user", user.id, user.id);
+
       return res.status(201).json({ 
         message: "Usuario registrado con éxito",
         user: {
@@ -186,6 +207,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Enviar notificación de cierre de sesión
           const timestamp = new Date().toLocaleString();
           (global as any).broadcastAdminNotification(`[LOGOUT] Usuario "${user.name}" ha cerrado sesión (${timestamp})`);
+          
+          await createAuditLog(req, "logout", `Usuario "${user.name}" cerró sesión`, "user", user.id, user.id);
         }
       }
       
@@ -328,6 +351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateAccountBalance(senderAccount.id, -amount);
       await storage.updateAccountBalance(recipientAccount.id, amount);
       
+      await createAuditLog(req, "transfer", `Transferencia de $${amount} a cuenta ${recipientAccountNumber}. Ref: ${outgoingTransaction.reference}`, "transaction", outgoingTransaction.id);
+
       return res.status(200).json({ 
         message: "Transferencia exitosa",
         transaction: outgoingTransaction
@@ -390,6 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update balance
       await storage.updateAccountBalance(account.id, -amount);
       
+      await createAuditLog(req, "payment", `Pago de $${amount} por servicio ${service.name}. Ref: ${reference}`, "transaction", transaction.id);
+
       return res.status(200).json({ 
         message: "Pago exitoso",
         transaction: transaction
@@ -433,6 +460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update balance
       await storage.updateAccountBalance(account.id, amount);
       
+      await createAuditLog(req, "deposit", `Depósito de $${amount} por ${method}`, "transaction", transaction.id);
+
       return res.status(200).json({ 
         message: "Depósito exitoso",
         transaction: transaction
@@ -489,6 +518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update balance
       await storage.updateAccountBalance(account.id, -amount);
       
+      await createAuditLog(req, "withdrawal", `Retiro de $${amount} por ${method}`, "transaction", transaction.id);
+
       return res.status(200).json({ 
         message: "Retiro exitoso",
         transaction: transaction,
@@ -548,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API ADMIN ROUTES
-  app.get("/api/admin/users", async (req: Request, res: Response) => {
+  app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllUsers();
       res.status(200).json(users);
@@ -558,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users", async (req: Request, res: Response) => {
+  app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       
@@ -584,6 +615,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[REGISTRO] Usuario "${user.name}" ha sido registrado por administrador (${timestamp})`);
       
+      await createAuditLog(req, "admin_user_update", `Admin creó usuario "${user.name}" (doc: ${user.document})`, "user", user.id);
+
       res.status(201).json(user);
     } catch (error) {
       console.error("Error creando usuario:", error);
@@ -594,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/users/:id", async (req: Request, res: Response) => {
+  app.put("/api/admin/users/:id", isAdmin, async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const userData = req.body;
@@ -612,6 +645,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[ACTUALIZACION] Usuario "${updatedUser.name}" ha sido actualizado por administrador (${timestamp})`);
       
+      await createAuditLog(req, "admin_user_update", `Admin actualizó usuario "${updatedUser.name}" (id: ${userId})`, "user", userId);
+
       res.status(200).json(updatedUser);
     } catch (error) {
       console.error("Error actualizando usuario:", error);
@@ -619,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/accounts", async (req: Request, res: Response) => {
+  app.get("/api/admin/accounts", isAdmin, async (req: Request, res: Response) => {
     try {
       const accounts = await storage.getAllAccounts();
       
@@ -639,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/accounts/:id/balance", async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/balance", isAdmin, async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const { amount, message, reference: customReference, transactionName } = req.body;
@@ -682,6 +717,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adjustmentType = amount > 0 ? "aumentado" : "reducido";
       (global as any).broadcastAdminNotification(`[AJUSTE] Saldo de "${user?.name}" se ha ${adjustmentType} en $${Math.abs(amount).toLocaleString()} (${timestamp})`);
       
+      await createAuditLog(req, "admin_balance_adjust", `Admin ajustó saldo de cuenta ${account.accountNumber} (usuario: ${user?.name}) en $${amount}`, "account", accountId);
+
       res.status(200).json(updatedAccount);
     } catch (error) {
       console.error("Error actualizando saldo:", error);
@@ -689,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/accounts/:id/status", async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/status", isAdmin, async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const { status, statusMessage } = req.body;
@@ -712,6 +749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[ESTADO] Cuenta de "${user?.name}" cambió a estado "${status}" (${timestamp})`);
       
+      await createAuditLog(req, "admin_status_change", `Admin cambió estado de cuenta ${account.accountNumber} (usuario: ${user?.name}) a "${status}"`, "account", accountId);
+
       res.status(200).json(updatedAccount);
     } catch (error) {
       console.error("Error actualizando estado:", error);
@@ -720,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ruta para actualizar datos generales de una cuenta
-  app.put("/api/admin/accounts/:id/update", async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/update", isAdmin, async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const accountData = req.body;
@@ -739,6 +778,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[ACTUALIZACIÓN] Datos de cuenta de "${user?.name}" actualizados (${timestamp})`);
       
+      await createAuditLog(req, "admin_user_update", `Admin actualizó datos de cuenta ${account.accountNumber} (usuario: ${user?.name})`, "account", accountId);
+
       res.status(200).json(updatedAccount);
     } catch (error) {
       console.error("Error actualizando cuenta:", error);
@@ -747,7 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ruta para eliminar una cuenta
-  app.delete("/api/admin/accounts/:id", async (req: Request, res: Response) => {
+  app.delete("/api/admin/accounts/:id", isAdmin, async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       
@@ -771,6 +812,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[ELIMINACIÓN] Cuenta de "${user?.name}" (${account.accountNumber}) ha sido eliminada (${timestamp})`);
       
+      await createAuditLog(req, "admin_user_update", `Admin eliminó cuenta ${account.accountNumber} (usuario: ${user?.name})`, "account", accountId);
+
       res.status(200).json({ message: "Cuenta eliminada exitosamente" });
     } catch (error) {
       console.error("Error eliminando cuenta:", error);
@@ -778,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/transactions", async (req: Request, res: Response) => {
+  app.get("/api/admin/transactions", isAdmin, async (req: Request, res: Response) => {
     try {
       const transactions = await storage.getAllTransactions();
       
@@ -800,7 +843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Ruta para actualizar una transacción
-  app.put("/api/admin/transactions/:id", async (req: Request, res: Response) => {
+  app.put("/api/admin/transactions/:id", isAdmin, async (req: Request, res: Response) => {
     try {
       const transactionId = parseInt(req.params.id);
       const transactionData = req.body;
@@ -820,6 +863,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `[TRANSACCIÓN] Transacción de ${user?.name || 'usuario desconocido'} actualizada (${timestamp})`
       );
       
+      await createAuditLog(req, "admin_user_update", `Admin actualizó transacción #${transactionId} de ${user?.name || 'usuario desconocido'}`, "transaction", transactionId);
+
       res.status(200).json(updatedTransaction);
     } catch (error) {
       console.error("Error actualizando transacción:", error);
@@ -827,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/sessions", async (req: Request, res: Response) => {
+  app.get("/api/admin/sessions", isAdmin, async (req: Request, res: Response) => {
     try {
       const sessions = await storage.getAllSessions();
       
@@ -847,7 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/statistics", async (req: Request, res: Response) => {
+  app.get("/api/admin/statistics", isAdmin, async (req: Request, res: Response) => {
     try {
       // Get counts
       const users = await storage.getAllUsers();
@@ -893,7 +938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CARD ROUTES (Admin)
-  app.get("/api/admin/cards", async (req: Request, res: Response) => {
+  app.get("/api/admin/cards", isAdmin, async (req: Request, res: Response) => {
     try {
       const cards = await storage.getAllCards();
       
@@ -914,7 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/admin/cards/pending", async (req: Request, res: Response) => {
+  app.get("/api/admin/cards/pending", isAdmin, async (req: Request, res: Response) => {
     try {
       const cards = await storage.getPendingCards();
       
@@ -935,7 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/approve", async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/approve", isAdmin, async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const adminId = req.session.userId || 1;
@@ -954,6 +999,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         read: 0
       });
       
+      await createAuditLog(req, "card_approved", `Admin aprobó tarjeta #${cardId} para usuario ${card.userId}`, "card", cardId);
+
       res.status(200).json(card);
     } catch (error) {
       console.error("Error aprobando tarjeta:", error);
@@ -961,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/reject", async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/reject", isAdmin, async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       
@@ -979,6 +1026,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         read: 0
       });
       
+      await createAuditLog(req, "card_rejected", `Admin rechazó tarjeta #${cardId} para usuario ${card.userId}`, "card", cardId);
+
       res.status(200).json(card);
     } catch (error) {
       console.error("Error rechazando tarjeta:", error);
@@ -986,7 +1035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/status", async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/status", isAdmin, async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { status } = req.body;
@@ -1023,7 +1072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/balance", async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/balance", isAdmin, async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { balance } = req.body;
@@ -1044,7 +1093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/balance-status", async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/balance-status", isAdmin, async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { balanceStatus } = req.body;
@@ -1080,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/admin/card-notifications", async (req: Request, res: Response) => {
+  app.get("/api/admin/card-notifications", isAdmin, async (req: Request, res: Response) => {
     try {
       const notifications = await storage.getAllCardNotifications();
       res.status(200).json(notifications);
@@ -1122,6 +1171,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         read: 0
       });
       
+      await createAuditLog(req, "card_approved", `Admin creó tarjeta directamente para usuario ${userId}`, "card", card.id);
+
       res.status(201).json(card);
     } catch (error) {
       console.error("Error creando tarjeta:", error);
@@ -1240,6 +1291,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       (global as any).broadcastAdminNotification(`[COBRO] ${type.toUpperCase()} aplicado a cuenta ${account.accountNumber}: ${reason}`);
+      
+      await createAuditLog(req, "admin_charge_created", `Admin creó ${type} en cuenta ${account.accountNumber}: ${reason} ($${amount || 0})`, "charge", charge.id);
+
       res.status(201).json(charge);
     } catch (error) {
       console.error("Error creando cobro:", error);
@@ -1311,6 +1365,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AUDIT LOG ROUTES (Admin)
+  app.get("/api/admin/audit-logs", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const logs = await storage.getAllAuditLogs();
+      
+      const enrichedLogs = await Promise.all(logs.map(async (log) => {
+        const user = log.userId ? await storage.getUser(log.userId) : null;
+        return {
+          ...log,
+          userName: user ? user.name : null
+        };
+      }));
+      
+      res.status(200).json(enrichedLogs);
+    } catch (error) {
+      console.error("Error obteniendo audit logs:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // SETTINGS ROUTES
   app.get("/api/settings/:key", async (req: Request, res: Response) => {
     try {
@@ -1345,6 +1419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const setting = await storage.setSetting(req.params.key, value, description, adminId);
+      
+      await createAuditLog(req, "settings_change", `Admin actualizó configuración "${req.params.key}" a "${value}"`, "setting", setting.id);
+
       res.status(200).json(setting);
     } catch (error) {
       console.error("Error actualizando configuración:", error);
@@ -1394,6 +1471,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Broadcast to admin
       (global as any).broadcastAdminNotification(`[TARJETA] Nueva solicitud de tarjeta de ${user?.name || 'Usuario'}`);
       
+      await createAuditLog(req, "card_request", `Usuario "${user?.name}" solicitó nueva tarjeta`, "card", card.id);
+
       res.status(201).json(card);
     } catch (error) {
       console.error("Error solicitando tarjeta:", error);
@@ -1437,6 +1516,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Broadcast to admin
       (global as any).broadcastAdminNotification(`[TARJETA] Usuario ${user?.name || 'Usuario'} inscribiendo tarjeta: ${cardNumber}`);
       
+      await createAuditLog(req, "card_register", `Usuario "${user?.name}" inscribió tarjeta ${cardNumber}`, "card", card.id);
+
       res.status(201).json(card);
     } catch (error) {
       console.error("Error inscribiendo tarjeta:", error);

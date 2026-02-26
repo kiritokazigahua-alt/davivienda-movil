@@ -14,9 +14,9 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: React 18 with TypeScript for type safety
 - **Styling**: Tailwind CSS with shadcn/ui components for consistent design
 - **State Management**: Zustand for global state management
-- **Routing**: Wouter for lightweight client-side routing
-- **Data Fetching**: TanStack React Query for server state management and caching
-- **Mobile-First Design**: PWA-ready with responsive design optimized for mobile devices
+- **Routing**: Wouter for lightweight client-side routing (optimized route config array pattern in App.tsx)
+- **Data Fetching**: TanStack React Query with 30s staleTime and refetchOnWindowFocus enabled
+- **Mobile-First Design**: PWA-ready with responsive design, pull-to-refresh, haptic feedback, gesture navigation
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
@@ -24,29 +24,35 @@ Preferred communication style: Simple, everyday language.
 - **Session Management**: Express-session with memory store for user authentication
 - **API Design**: RESTful API with JSON responses and proper error handling
 - **Build System**: ESBuild for production bundling, tsx for development
+- **Security**: All admin routes protected with `isAdmin` middleware
 
 ### Data Layer
 - **Database**: PostgreSQL as the primary database
 - **ORM**: Drizzle ORM for type-safe database operations
 - **Connection**: Neon serverless PostgreSQL with connection pooling
 - **Schema**: Well-defined relational schema with proper foreign key constraints
+- **Tables**: users, accounts, transactions, beneficiaries, services, cards, card_notifications, account_charges, app_settings, user_sessions, audit_logs
 
 ### Key Features
-- **Authentication**: Session-based authentication with login/logout functionality
+- **Authentication**: Session-based authentication with login/logout/register functionality
 - **Account Management**: Balance viewing, account details, transaction history
 - **Money Transfers**: Internal and external bank transfers with validation
 - **Bill Payments**: Utility payments (electricity, water, etc.) with service integration
 - **QR Code**: QR-based money transfers and payments
 - **Mobile Recharges**: Cellular and transport card top-ups
-- **Card Management**: Users can request new cards or register existing cards (pending admin approval). Cards can be debit/credit, Visa/Mastercard with status tracking (pending, active, blocked, frozen, rejected)
-- **Admin Panel**: Administrative interface for user, transaction, and card management including card approval/rejection, status changes, and balance control
-- **Admin Settings**: Configurable application settings including support phone number
-- **Admin Card Management**: Direct card creation and editing capabilities for administrators
-- **Admin Cobros & Accesos**: Panel for managing charges (multas, cobros, promos, descuentos, accesos especiales) with amount, currency, interest rates, scheduled discounts and expiry dates
-- **Per-User Support Phone**: Admin can assign individual support WhatsApp numbers to users; falls back to global number
-- **Activity Log**: Session-based activity tracking displayed in admin dashboard
+- **Card Management**: Users can request new cards or register existing cards (pending admin approval)
+- **Admin Panel**: Administrative interface with tabs: Dashboard, Usuarios, Cuentas, Tarjetas, Transacciones, Sesiones, Notificaciones, Alertas, Cobros & Accesos, Registro de Actividad, Configuración
+- **Comprehensive Audit Logging**: All user and admin operations are tracked in the audit_logs table
 - **Real-time Updates**: WebSocket integration for live notifications
-- **Support Phone Hook**: `useSupportPhone` hook (client/src/hooks/use-support-phone.ts) provides reactive support phone fetching with 30s polling, user-specific override support, and WhatsApp/call helpers
+- **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page
+- **Haptic Feedback**: Vibration API on navigation button clicks
+
+### Audit Logging System
+- Table: `audit_logs` in PostgreSQL
+- Tracks: login, logout, register, transfer, payment, deposit, withdrawal, card_request, card_register, card_approved, card_rejected, admin_balance_adjust, admin_status_change, admin_user_update, admin_charge_created, settings_change
+- Each entry stores: userId, action, details, ipAddress, userAgent, entityType, entityId, createdAt
+- Admin viewer: "Registro de Actividad" tab with filters by action type, user, date range
+- API: `GET /api/admin/audit-logs` (admin only)
 
 ### Support Phone Number
 - Default/current: `+573208646620`
@@ -67,32 +73,37 @@ Preferred communication style: Simple, everyday language.
 - Balance displays show symbol at start + currency code in smaller text at end
 - USD uses en-US locale (comma thousands), EUR uses de-DE locale (dot thousands), COP uses es-CO locale
 - USD/EUR/GBP/BRL show 2 decimal places; COP shows 0 decimals
-- Currency-based bank selection: USD shows US banks, EUR shows EU banks by country, etc.
 
 ### PWA Mobile App
-- Manifest.json configured for standalone display
+- Manifest.json configured for standalone display with shortcuts (Transferencias, Pagos, QR)
 - Apple mobile web app capable with viewport-fit=cover
 - Hidden scrollbars for native app feel
 - Safe area insets for notched devices
 - Portrait orientation lock
+- Pull-to-refresh with visual indicator
+- Haptic feedback on navigation actions
 
 ### Recent Changes (February 2026)
-- Updated support phone to +573208646620
-- Fixed support phone sync: useSupportPhone hook now polls every 30s so admin updates reflect to users
-- Added per-user support phone assignment (admin can set customSupportPhone per user)
-- Added Cobros & Accesos admin tab with full charge creation dialog
-- Added account_charges table with CRUD operations
-- Removed all hardcoded phone numbers across the app
-- Improved currency formatting: symbol at start, currency code at end (e.g., $1,000.00 USD)
-- Added proper locale-based number formatting per currency
-- Added decimals for USD/EUR/GBP/BRL currencies
-- Added manifest.json link to HTML for PWA install support
+- Added comprehensive audit logging system (audit_logs table, all operations tracked)
+- Added "Registro de Actividad" admin tab with filterable audit log viewer
+- Fixed user registration to call real API instead of simulating
+- Fixed login response to include isAdmin field
+- Secured all admin routes with isAdmin middleware
+- Optimized App.tsx route definitions (array config pattern, reduced duplication)
+- Improved query cache: staleTime 30s, refetchOnWindowFocus enabled
+- Added pull-to-refresh gesture support in AppLayout
+- Added haptic feedback (Vibration API) on navigation buttons
+- Enhanced PWA manifest with shortcuts, categories, scope
+- Added data-testid attributes to interactive elements
+- Cleaned up dead files (Dashboard.tsx, AccountDetails.tsx, Login.tsx, use-auth.ts)
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management
 - **Input Validation**: Zod schema validation for all API inputs
 - **Error Handling**: Centralized error handling with proper status codes
 - **Authentication Guards**: Route protection for authenticated and admin users
+- **Admin Route Protection**: All `/api/admin/*` routes protected with `isAdmin` middleware
+- **Audit Trail**: Complete audit logging of all significant operations
 
 ## External Dependencies
 

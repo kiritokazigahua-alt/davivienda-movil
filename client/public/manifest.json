@@ -3,10 +3,13 @@
   "short_name": "Davivienda",
   "description": "Aplicación móvil de Davivienda para gestionar tus finanzas personales",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#D50000",
   "orientation": "portrait",
+  "categories": ["finance", "banking", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -17,6 +20,56 @@
       "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Pantalla principal de Davivienda Móvil"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Transferencias",
+      "short_name": "Enviar",
+      "description": "Realizar transferencias de dinero",
+      "url": "/transfers",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Pagos",
+      "short_name": "Pagos",
+      "description": "Realizar pagos de servicios",
+      "url": "/payments",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Código QR",
+      "short_name": "QR",
+      "description": "Escanear o generar códigos QR para pagos",
+      "url": "/qr",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

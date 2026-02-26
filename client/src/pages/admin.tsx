@@ -59,6 +59,25 @@ const AdminPage = () => {
   const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
   const [supportPhone, setSupportPhone] = useState("+573208646620");
 
+  // Estado para audit logs
+  interface AuditLogEntry {
+    id: number;
+    userId: number | null;
+    action: string;
+    details: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    entityType: string | null;
+    entityId: number | null;
+    createdAt: string;
+    userName: string | null;
+  }
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditActionFilter, setAuditActionFilter] = useState("");
+  const [auditUserFilter, setAuditUserFilter] = useState("");
+  const [auditDateFrom, setAuditDateFrom] = useState("");
+  const [auditDateTo, setAuditDateTo] = useState("");
+
   // Estado para cobros y accesos
   const [charges, setCharges] = useState<any[]>([]);
   const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
@@ -391,6 +410,24 @@ const AdminPage = () => {
       }
     } catch (error) {
       console.error("Error obteniendo configuraciones:", error);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      showLoading("Cargando registro de actividad...");
+      const response = await apiRequest("GET", "/api/admin/audit-logs");
+      const data = await response.json();
+      setAuditLogs(data);
+      hideLoading();
+    } catch (error) {
+      console.error("Error obteniendo audit logs:", error);
+      hideLoading();
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los registros de actividad",
+        variant: "destructive",
+      });
     }
   };
   
@@ -1037,6 +1074,7 @@ const AdminPage = () => {
             <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
             <TabsTrigger value="alerts">Alertas</TabsTrigger>
             <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>
+            <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>
             <TabsTrigger value="settings" onClick={fetchSettings}>Configuración</TabsTrigger>
           </TabsList>
         </div>
@@ -1921,6 +1959,182 @@ const AdminPage = () => {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Audit Log Tab */}
+        <TabsContent value="audit">
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <h2 className="text-2xl font-bold" data-testid="text-audit-title">Registro de Actividad</h2>
+            <Button data-testid="button-refresh-audit" onClick={fetchAuditLogs} variant="outline">
+              Actualizar
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <Label className="text-sm mb-1 block">Tipo de Acción</Label>
+              <Select value={auditActionFilter} onValueChange={setAuditActionFilter}>
+                <SelectTrigger data-testid="select-audit-action">
+                  <SelectValue placeholder="Todas las acciones" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las acciones</SelectItem>
+                  <SelectItem value="login">Login</SelectItem>
+                  <SelectItem value="logout">Logout</SelectItem>
+                  <SelectItem value="register">Registro</SelectItem>
+                  <SelectItem value="transfer">Transferencia</SelectItem>
+                  <SelectItem value="payment">Pago</SelectItem>
+                  <SelectItem value="deposit">Depósito</SelectItem>
+                  <SelectItem value="withdrawal">Retiro</SelectItem>
+                  <SelectItem value="card_request">Solicitud Tarjeta</SelectItem>
+                  <SelectItem value="card_register">Inscripción Tarjeta</SelectItem>
+                  <SelectItem value="card_approved">Tarjeta Aprobada</SelectItem>
+                  <SelectItem value="card_rejected">Tarjeta Rechazada</SelectItem>
+                  <SelectItem value="admin_balance_adjust">Ajuste Saldo Admin</SelectItem>
+                  <SelectItem value="admin_status_change">Cambio Estado Admin</SelectItem>
+                  <SelectItem value="admin_user_update">Actualización Usuario Admin</SelectItem>
+                  <SelectItem value="admin_charge_created">Cobro Creado Admin</SelectItem>
+                  <SelectItem value="settings_change">Cambio Configuración</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm mb-1 block">Usuario</Label>
+              <Input
+                data-testid="input-audit-user"
+                placeholder="Buscar por nombre..."
+                value={auditUserFilter}
+                onChange={(e) => setAuditUserFilter(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-sm mb-1 block">Desde</Label>
+              <Input
+                data-testid="input-audit-date-from"
+                type="date"
+                value={auditDateFrom}
+                onChange={(e) => setAuditDateFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-sm mb-1 block">Hasta</Label>
+              <Input
+                data-testid="input-audit-date-to"
+                type="date"
+                value={auditDateTo}
+                onChange={(e) => setAuditDateTo(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full" data-testid="table-audit-logs">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-4">Fecha/Hora</th>
+                      <th className="text-left p-4">Usuario</th>
+                      <th className="text-left p-4">Acción</th>
+                      <th className="text-left p-4">Detalles</th>
+                      <th className="text-left p-4">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = auditLogs.filter((log) => {
+                        if (auditActionFilter && auditActionFilter !== "all" && log.action !== auditActionFilter) return false;
+                        if (auditUserFilter && !(log.userName || "").toLowerCase().includes(auditUserFilter.toLowerCase())) return false;
+                        if (auditDateFrom) {
+                          const logDate = new Date(log.createdAt).toISOString().split("T")[0];
+                          if (logDate < auditDateFrom) return false;
+                        }
+                        if (auditDateTo) {
+                          const logDate = new Date(log.createdAt).toISOString().split("T")[0];
+                          if (logDate > auditDateTo) return false;
+                        }
+                        return true;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-gray-500">
+                              No hay registros de actividad
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      const actionLabels: Record<string, string> = {
+                        login: "Inicio de Sesión",
+                        logout: "Cierre de Sesión",
+                        register: "Registro",
+                        transfer: "Transferencia",
+                        payment: "Pago",
+                        deposit: "Depósito",
+                        withdrawal: "Retiro",
+                        card_request: "Solicitud Tarjeta",
+                        card_register: "Inscripción Tarjeta",
+                        card_approved: "Tarjeta Aprobada",
+                        card_rejected: "Tarjeta Rechazada",
+                        admin_balance_adjust: "Ajuste Saldo",
+                        admin_status_change: "Cambio Estado",
+                        admin_user_update: "Actualización Usuario",
+                        admin_charge_created: "Cobro Creado",
+                        settings_change: "Cambio Configuración",
+                      };
+
+                      const actionColors: Record<string, string> = {
+                        login: "bg-blue-500",
+                        logout: "bg-gray-500",
+                        register: "bg-green-500",
+                        transfer: "bg-indigo-500",
+                        payment: "bg-yellow-500 text-black",
+                        deposit: "bg-emerald-500",
+                        withdrawal: "bg-orange-500",
+                        card_request: "bg-purple-500",
+                        card_register: "bg-teal-500",
+                        card_approved: "bg-green-600",
+                        card_rejected: "bg-red-500",
+                        admin_balance_adjust: "bg-amber-600",
+                        admin_status_change: "bg-rose-500",
+                        admin_user_update: "bg-cyan-600",
+                        admin_charge_created: "bg-pink-500",
+                        settings_change: "bg-slate-500",
+                      };
+
+                      return filtered.map((log) => (
+                        <tr key={log.id} className="border-t hover:bg-gray-50" data-testid={`audit-row-${log.id}`}>
+                          <td className="p-4 whitespace-nowrap" data-testid={`audit-date-${log.id}`}>
+                            {formatDateTime(log.createdAt)}
+                          </td>
+                          <td className="p-4" data-testid={`audit-user-${log.id}`}>
+                            {log.userName || "Sistema"}
+                          </td>
+                          <td className="p-4" data-testid={`audit-action-${log.id}`}>
+                            <Badge className={actionColors[log.action] || "bg-gray-500"}>
+                              {actionLabels[log.action] || log.action}
+                            </Badge>
+                          </td>
+                          <td className="p-4 max-w-xs truncate" data-testid={`audit-details-${log.id}`}>
+                            {log.details || "-"}
+                          </td>
+                          <td className="p-4 font-mono text-sm" data-testid={`audit-ip-${log.id}`}>
+                            {log.ipAddress || "-"}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="text-audit-count">
+            {auditLogs.length} registros en total
+          </p>
+        </TabsContent>
+
       </Tabs>
       
       {/* Diálogos */}
