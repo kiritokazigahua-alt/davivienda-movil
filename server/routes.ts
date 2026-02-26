@@ -1652,7 +1652,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!fetchRes.ok) {
-        return res.status(502).json({ message: "No se pudo cargar la pasarela" });
+        const brandNameSetting2 = await storage.getSetting("checkout_brand_name");
+        const bn = brandNameSetting2?.value || "Davivienda Pagos";
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${bn}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f9fafb;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.c{text-align:center;max-width:320px}.icon{width:56px;height:56px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}h2{font-size:18px;color:#1f2937;margin-bottom:8px}p{font-size:14px;color:#6b7280;margin-bottom:20px;line-height:1.5}a.btn{display:block;padding:14px 24px;background:#D50000;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px}a.btn:hover{background:#b30000}.copy{margin-top:12px;padding:10px;background:white;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280;cursor:pointer;width:100%}</style></head><body><div class="c"><div class="icon">&#9888;</div><h2>Pasarela externa</h2><p>La pasarela de pago se abrira en una nueva ventana. Complete el pago y regrese.</p><a class="btn" href="${targetUrl}" target="_blank" rel="noopener noreferrer">Abrir pasarela de pago</a><button class="copy" onclick="navigator.clipboard.writeText('${targetUrl}');this.textContent='Link copiado!'">Copiar link de pago</button></div></body></html>`);
       }
 
       let html = await fetchRes.text();
@@ -1687,7 +1690,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('X-Frame-Options', 'SAMEORIGIN');
       res.send(html);
     } catch (error) {
-      res.status(500).json({ message: "Error al procesar la pasarela" });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f9fafb;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.c{text-align:center;max-width:320px}.icon{width:56px;height:56px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}h2{font-size:18px;color:#1f2937;margin-bottom:8px}p{font-size:14px;color:#6b7280;line-height:1.5}</style></head><body><div class="c"><div class="icon">&#10060;</div><h2>Error de conexion</h2><p>No se pudo conectar con la pasarela de pago. Intente de nuevo mas tarde.</p></div></body></html>`);
     }
   });
 
