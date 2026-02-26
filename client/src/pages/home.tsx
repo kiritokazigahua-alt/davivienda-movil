@@ -27,7 +27,7 @@ const HomePage = () => {
           const res = await fetch('/api/charges', { credentials: 'include' });
           if (res.ok) {
             const charges = await res.json();
-            const pending = charges.filter((c: any) => c.status === 'pending_payment' && c.stripePaymentUrl);
+            const pending = charges.filter((c: any) => c.status === 'pending_payment');
             setPendingCharges(pending);
           }
         } catch {}
@@ -166,31 +166,6 @@ const HomePage = () => {
                       <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-black font-medium">{account.statusMessage}</p>
                     </div>
-                    {pendingCharges.length > 0 && (
-                      <div className="mt-2 space-y-2" data-testid="pending-charges-list">
-                        {pendingCharges.map((charge: any) => (
-                          <div key={charge.id} className="bg-white border border-red-200 rounded-lg p-3" data-testid={`charge-item-${charge.id}`}>
-                            <div className="flex justify-between items-start mb-1">
-                              <p className="text-sm font-bold text-gray-800">{charge.reason}</p>
-                              <span className="text-sm font-bold text-red-600">
-                                {formatCurrency(charge.amount, charge.currency as CurrencyCode)} {charge.currency}
-                              </span>
-                            </div>
-                            {charge.description && (
-                              <p className="text-xs text-gray-500 mb-2">{charge.description}</p>
-                            )}
-                            <button
-                              onClick={() => navigate(`/checkout/${charge.id}`)}
-                              className="flex items-center justify-center w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
-                              data-testid={`button-pay-charge-${charge.id}`}
-                            >
-                              <CreditCard size={16} className="mr-2" />
-                              Pagar ahora
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                     <button 
                       onClick={handleContactSupport}
                       className="mt-2 bg-red-600 text-white text-sm rounded-md px-3 py-1.5 flex items-center w-auto"
@@ -213,6 +188,64 @@ const HomePage = () => {
               </div>
             </div>
           </section>
+
+          {/* Pagos Pendientes - Visible siempre que haya cobros */}
+          {pendingCharges.length > 0 && (
+            <section className="mt-4 px-4" data-testid="pending-charges-section">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm">
+                <div className="flex items-center mb-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0" />
+                  <h2 className="text-lg font-bold text-red-800">
+                    Pagos Pendientes ({pendingCharges.length})
+                  </h2>
+                </div>
+                <p className="text-sm text-red-700 mb-3">
+                  Tienes cobros pendientes que requieren tu atención. Realiza el pago para evitar restricciones en tu cuenta.
+                </p>
+                <div className="space-y-3" data-testid="pending-charges-list">
+                  {pendingCharges.map((charge: any) => (
+                    <div key={charge.id} className="bg-white border border-red-200 rounded-lg p-3 shadow-sm" data-testid={`charge-item-${charge.id}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-800">{charge.reason}</p>
+                          <span className="text-xs text-gray-500 capitalize">{charge.type === 'multa' ? 'Multa' : charge.type === 'cobro' ? 'Cobro' : charge.type === 'acceso_especial' ? 'Acceso Especial' : charge.type}</span>
+                        </div>
+                        <span className="text-sm font-bold text-red-600 ml-2">
+                          {formatCurrency(charge.amount, charge.currency as CurrencyCode)} {charge.currency}
+                        </span>
+                      </div>
+                      {charge.description && (
+                        <p className="text-xs text-gray-500 mb-2">{charge.description}</p>
+                      )}
+                      {charge.stripePaymentUrl ? (
+                        <button
+                          onClick={() => navigate(`/checkout/${charge.id}`)}
+                          className="flex items-center justify-center w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
+                          data-testid={`button-pay-charge-${charge.id}`}
+                        >
+                          <CreditCard size={16} className="mr-2" />
+                          Pagar ahora
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center w-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-sm font-medium rounded-lg px-4 py-2.5">
+                          <AlertCircle size={16} className="mr-2" />
+                          Contacta soporte para realizar el pago
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button 
+                  onClick={handleContactSupport}
+                  className="mt-3 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg px-4 py-2 flex items-center w-full justify-center transition-colors"
+                  data-testid="button-contact-support-charges"
+                >
+                  <MessageCircleIcon size={16} className="mr-2" />
+                  Contactar soporte para pagar
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Servicios Destacados */}
           <section className="mt-6 px-4">
