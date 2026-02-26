@@ -141,12 +141,13 @@ const HomePage = () => {
                 {(!account?.status || account?.status === "PENDIENTE") && (
                   <div className="mt-2 p-3 bg-red-100 border border-red-300 rounded-lg">
                     <p className="text-sm text-red-800 font-bold mb-2">Para activar su cuenta debe solicitar su tarjeta física o inscribir su TAG</p>
-                    <Button 
+                    <button 
                       onClick={() => navigate('/cards')} 
-                      className="bg-red-600 hover:bg-red-700 text-white w-full text-xs"
+                      className="bg-red-600 hover:bg-red-700 text-white w-full text-xs py-2 px-4 rounded-lg font-medium"
+                      data-testid="button-request-card-home"
                     >
                       Solicitar Tarjeta / TAG
-                    </Button>
+                    </button>
                   </div>
                 )}
                 {account?.status === "BLOQUEADA" && (

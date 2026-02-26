@@ -127,7 +127,7 @@ const BottomNavBar = () => {
 
 const PageTransition = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div data-testid="page-content" className="fade-in mobile-content hide-scrollbar">
+    <div data-testid="page-content" className="fade-in mobile-content">
       {children}
     </div>
   );
@@ -181,7 +181,7 @@ const PullToRefresh = ({ children }: { children: React.ReactNode }) => {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="flex-1 relative overflow-auto"
+      className="flex-1 relative flex flex-col min-h-0"
     >
       {(pullDistance > 0 || isRefreshing) && (
         <div
@@ -238,7 +238,7 @@ const GestureDetector = ({ children }: { children: React.ReactNode }) => {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="flex-1"
+      className="flex-1 flex flex-col min-h-0"
     >
       {children}
     </div>

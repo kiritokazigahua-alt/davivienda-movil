@@ -444,6 +444,7 @@ const LoginPage = () => {
               <h2 className="text-lg font-medium text-gray-800 mb-4">Ingrese el número de documento</h2>
               <Input
                 type="text"
+                data-testid="input-username"
                 className="w-full bg-white rounded-3xl py-6 px-4 h-14 border-gray-200"
                 placeholder="Número de documento"
                 value={username}
@@ -461,6 +462,7 @@ const LoginPage = () => {
               
               <div className="flex justify-center space-x-4">
                 <Button 
+                  data-testid="button-continue"
                   onClick={handleDocumentSubmit}
                   className="w-48 rounded-full bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 h-12"
                 >
@@ -521,6 +523,7 @@ const LoginPage = () => {
               <h2 className="text-lg font-medium text-gray-800 mb-4">Ingresa tu clave</h2>
               <Input
                 ref={passwordInputRef}
+                data-testid="input-password"
                 type="password"
                 className="w-full bg-white rounded-3xl py-6 px-4 h-14 border-gray-200"
                 placeholder="Clave de acceso"
@@ -558,6 +561,7 @@ const LoginPage = () => {
                 </Button>
                 
                 <Button 
+                  data-testid="button-login"
                   onClick={handleLogin}
                   className="w-48 rounded-full bg-red-600 hover:bg-red-700 text-white py-2 h-12"
                   disabled={!password}
