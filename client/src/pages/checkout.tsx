@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, CreditCard, ArrowRight, Lock, CheckCircle } from "lucide-react";
+import { Loader2, ShieldCheck, CreditCard, ArrowRight, Lock, CheckCircle, Copy, Check, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { CurrencyCode } from "@/types";
 
@@ -25,7 +25,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
-  const [redirecting, setRedirecting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchCheckout = async () => {
@@ -52,10 +52,24 @@ export default function CheckoutPage() {
     fetchCheckout();
   }, [params.chargeId]);
 
-  const handlePay = () => {
+  const handleCopyLink = async () => {
     if (!checkout) return;
-    setRedirecting(true);
-    window.location.href = checkout.paymentUrl;
+    try {
+      await navigator.clipboard.writeText(checkout.paymentUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = checkout.paymentUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    }
   };
 
   if (loading) {
@@ -157,29 +171,44 @@ export default function CheckoutPage() {
 
               <div className="bg-blue-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-blue-700">
-                  Al continuar, sera redirigido a la pasarela segura para completar el pago.
+                  Al hacer clic en "Pagar Ahora" se abrira la pasarela de pago en una nueva ventana. Complete el pago alli.
                 </p>
               </div>
 
-              <Button
+              <a
+                href={checkout.paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 data-testid="button-checkout-pay"
-                className="w-full h-14 text-lg font-bold bg-[#D50000] hover:bg-[#B30000] transition-all duration-200 shadow-lg"
-                onClick={handlePay}
-                disabled={redirecting}
+                className="flex items-center justify-center gap-2 w-full h-14 text-lg font-bold bg-[#D50000] hover:bg-[#B30000] text-white rounded-md transition-all duration-200 shadow-lg"
               >
-                {redirecting ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Redirigiendo...
+                <CreditCard className="h-5 w-5" />
+                Pagar Ahora
+                <ExternalLink className="h-5 w-5" />
+              </a>
+
+              <Button
+                data-testid="button-copy-link"
+                variant="outline"
+                className="w-full h-12 text-sm border-gray-300"
+                onClick={handleCopyLink}
+              >
+                {copied ? (
+                  <span className="flex items-center gap-2 text-green-600">
+                    <Check className="h-4 w-4" />
+                    Link copiado al portapapeles
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Pagar Ahora
-                    <ArrowRight className="h-5 w-5" />
+                    <Copy className="h-4 w-4" />
+                    Copiar link de pago
                   </span>
                 )}
               </Button>
+
+              <p className="text-xs text-center text-gray-400">
+                Si el boton no abre la pasarela, copie el link y abralo directamente en su navegador.
+              </p>
 
               <Button
                 data-testid="button-checkout-cancel"
