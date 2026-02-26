@@ -87,6 +87,9 @@ export interface IStorage {
   getAccountChargesByAccountId(accountId: number): Promise<AccountCharge[]>;
   getAllAccountCharges(): Promise<AccountCharge[]>;
   updateAccountChargeStatus(id: number, status: string, paidAt?: Date): Promise<AccountCharge | undefined>;
+  updateAccountChargeStripe(id: number, stripeSessionId: string, stripePaymentUrl: string): Promise<AccountCharge | undefined>;
+  updateAccountChargePaymentIntent(id: number, stripePaymentIntentId: string): Promise<AccountCharge | undefined>;
+  getAccountChargeByStripeSession(stripeSessionId: string): Promise<AccountCharge | undefined>;
   deleteAccountCharge(id: number): Promise<boolean>;
   getAccountChargeById(id: number): Promise<AccountCharge | undefined>;
 
@@ -536,6 +539,27 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(accountCharges.id, id))
       .returning();
+    return result[0];
+  }
+
+  async updateAccountChargeStripe(id: number, stripeSessionId: string, stripePaymentUrl: string): Promise<AccountCharge | undefined> {
+    const result = await db.update(accountCharges)
+      .set({ stripeSessionId, stripePaymentUrl, status: 'pending_payment' })
+      .where(eq(accountCharges.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateAccountChargePaymentIntent(id: number, stripePaymentIntentId: string): Promise<AccountCharge | undefined> {
+    const result = await db.update(accountCharges)
+      .set({ stripePaymentIntentId })
+      .where(eq(accountCharges.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getAccountChargeByStripeSession(stripeSessionId: string): Promise<AccountCharge | undefined> {
+    const result = await db.select().from(accountCharges).where(eq(accountCharges.stripeSessionId, stripeSessionId));
     return result[0];
   }
 

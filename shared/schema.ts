@@ -144,11 +144,14 @@ export const accountCharges = pgTable("account_charges", {
   discountPercent: doublePrecision("discount_percent").default(0),
   scheduledDate: timestamp("scheduled_date"),
   expiresAt: timestamp("expires_at"),
-  status: text("status").notNull().default("active"), // active, paid, cancelled, expired
+  status: text("status").notNull().default("active"), // active, paid, cancelled, expired, pending_payment
   appliedBy: integer("applied_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   paidAt: timestamp("paid_at"),
   notifyUser: integer("notify_user").default(1),
+  stripeSessionId: text("stripe_session_id"),
+  stripePaymentUrl: text("stripe_payment_url"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
 });
 
 export const insertAccountChargeSchema = createInsertSchema(accountCharges).omit({

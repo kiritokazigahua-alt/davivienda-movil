@@ -131,6 +131,18 @@ Preferred communication style: Simple, everyday language.
 - **Code Quality**: TypeScript for static typing, Prettier for code formatting
 - **Development Environment**: Replit-specific plugins for runtime error handling
 
+### Payment Processing
+- **Stripe Integration**: Real payment processing via Stripe Checkout
+  - `server/stripeClient.ts`: Stripe client using Replit connection API for credentials
+  - `server/webhookHandlers.ts`: Webhook processing for Stripe events via stripe-replit-sync
+  - Checkout sessions created for charges marked with `requireStripePayment`
+  - Webhook route registered BEFORE `express.json()` middleware in `server/index.ts`
+  - `stripe-replit-sync` handles schema migrations, webhook management, and data sync
+  - Payment pages: `/payment/success` and `/payment/cancel`
+  - Admin can create charges with real Stripe payment links
+  - Users redirected to Stripe Checkout, payment verified on return
+  - `account_charges` table has `stripeSessionId`, `stripePaymentUrl`, `stripePaymentIntentId` fields
+
 ### Optional Integrations
 - **WebSocket**: For real-time admin notifications and updates
 - **PWA Features**: Service worker ready for offline functionality

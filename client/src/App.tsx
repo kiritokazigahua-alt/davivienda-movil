@@ -16,6 +16,8 @@ import QrPage from "@/pages/qr";
 import QrPaymentPage from "@/pages/qr-payment";
 import AdminPage from "@/pages/admin";
 import CardsPage from "@/pages/cards";
+import PaymentSuccessPage from "@/pages/payment-success";
+import PaymentCancelPage from "@/pages/payment-cancel";
 import NotFound from "@/pages/not-found";
 
 import AppLayout from "@/layouts/AppLayout";
@@ -84,6 +86,8 @@ function App() {
       <Toaster />
       <Switch>
         <Route path="/" component={LoginPage} />
+        <Route path="/payment/success" component={PaymentSuccessPage} />
+        <Route path="/payment/cancel" component={PaymentCancelPage} />
         
         {isAuthenticated && isAdmin && adminPaths.map((p) => (
           <Route key={p} path={p} component={AdminPage} />

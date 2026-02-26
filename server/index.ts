@@ -1,8 +1,28 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
+import { WebhookHandlers } from "./webhookHandlers";
+import { runMigrations } from "stripe-replit-sync";
+import { getStripeSync } from "./stripeClient";
 
 const app = express();
+
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const signature = req.headers['stripe-signature'];
+      if (!signature) return res.status(400).json({ error: 'Missing signature' });
+      const sig = Array.isArray(signature) ? signature[0] : signature;
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -36,7 +56,36 @@ app.use((req, res, next) => {
   next();
 });
 
+async function initStripe() {
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      log('DATABASE_URL not set, skipping Stripe initialization');
+      return;
+    }
+
+    await runMigrations({ databaseUrl });
+
+    const stripeSync = await getStripeSync();
+
+    const replitDomains = process.env.REPLIT_DOMAINS;
+    if (replitDomains) {
+      const webhookBaseUrl = `https://${replitDomains.split(',')[0]}`;
+      await stripeSync.findOrCreateManagedWebhook(
+        `${webhookBaseUrl}/api/stripe/webhook`
+      );
+    }
+
+    await stripeSync.syncBackfill();
+    log('Stripe initialized successfully');
+  } catch (error: any) {
+    log(`Stripe initialization warning: ${error.message}`);
+  }
+}
+
 (async () => {
+  await initStripe();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -46,11 +95,7 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "development") {
-    // Dynamic import with computed path to prevent esbuild from bundling vite
     const vitePath = [".", "vite"].join("/");
     const viteModule = await import(vitePath);
     await viteModule.setupVite(app, server);
@@ -58,9 +103,6 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = 5000;
   server.listen({
     port,

@@ -88,7 +88,8 @@ const AdminPage = () => {
     description: "",
     amount: "",
     currency: "COP",
-    applyToBalance: true,
+    applyToBalance: false,
+    requireStripePayment: true,
     interestRate: "",
     discountPercent: "",
     scheduledDate: "",
@@ -942,9 +943,9 @@ const AdminPage = () => {
         scheduledDate: newCharge.scheduledDate || null,
         expiresAt: newCharge.expiresAt || null
       });
-      toast({ title: "Cobro creado", description: "El cobro fue aplicado correctamente" });
+      toast({ title: "Cobro creado", description: newCharge.requireStripePayment ? "Cobro creado con link de pago Stripe" : "El cobro fue aplicado correctamente" });
       setIsChargeDialogOpen(false);
-      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: true, interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
+      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: false, requireStripePayment: true, interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
       fetchCharges();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "No se pudo crear el cobro", variant: "destructive" });
@@ -1874,8 +1875,14 @@ const AdminPage = () => {
                           }>
                             {charge.type.toUpperCase()}
                           </Badge>
-                          <span className="font-semibold">{charge.title}</span>
+                          <span className="font-semibold">{charge.reason || charge.title}</span>
                           <Badge variant="outline" className="text-xs">{charge.currency || "COP"}</Badge>
+                          {charge.status === 'pending_payment' && (
+                            <Badge variant="destructive" className="text-xs">Pendiente de Pago</Badge>
+                          )}
+                          {charge.status === 'paid' && (
+                            <Badge className="text-xs bg-green-600">Pagado</Badge>
+                          )}
                         </div>
                         {charge.description && <p className="text-sm text-muted-foreground">{charge.description}</p>}
                         <div className="flex gap-4 text-xs text-muted-foreground">
@@ -1885,8 +1892,40 @@ const AdminPage = () => {
                           {charge.scheduledDate && <span>Fecha: <strong>{new Date(charge.scheduledDate).toLocaleDateString("es-CO")}</strong></span>}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Cuenta ID: {charge.accountId} • {charge.applyToBalance ? "Aplica al saldo" : "Solo informativo"} • {formatDateTime(charge.createdAt)}
+                          {charge.accountNumber ? `Cuenta: ${charge.accountNumber}` : `Cuenta ID: ${charge.accountId}`}
+                          {charge.userName ? ` (${charge.userName})` : ''}
+                          {' • '}{formatDateTime(charge.createdAt)}
                         </p>
+                        {charge.stripePaymentUrl && charge.status === 'pending_payment' && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <a
+                              href={charge.stripePaymentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline"
+                              data-testid={`link-payment-${charge.id}`}
+                            >
+                              Link de pago Stripe
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-xs"
+                              data-testid={`button-copy-payment-link-${charge.id}`}
+                              onClick={() => {
+                                navigator.clipboard.writeText(charge.stripePaymentUrl);
+                                toast({ title: "Copiado", description: "Link de pago copiado al portapapeles" });
+                              }}
+                            >
+                              Copiar link
+                            </Button>
+                          </div>
+                        )}
+                        {charge.paidAt && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Pagado el: {formatDateTime(charge.paidAt)}
+                          </p>
+                        )}
                       </div>
                       <Button
                         variant="outline"
@@ -3129,24 +3168,43 @@ const AdminPage = () => {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Aplicar al saldo</Label>
+              <Label className="text-right">Pago con Stripe</Label>
               <div className="col-span-3 flex items-center gap-2">
                 <input
                   type="checkbox"
-                  data-testid="checkbox-charge-apply"
-                  checked={newCharge.applyToBalance}
-                  onChange={(e) => setNewCharge({...newCharge, applyToBalance: e.target.checked})}
+                  data-testid="checkbox-charge-stripe"
+                  checked={newCharge.requireStripePayment}
+                  onChange={(e) => setNewCharge({...newCharge, requireStripePayment: e.target.checked, applyToBalance: e.target.checked ? false : newCharge.applyToBalance})}
                   className="h-4 w-4"
                 />
                 <span className="text-sm text-muted-foreground">
-                  {newCharge.applyToBalance 
-                    ? (newCharge.type === "promo" || newCharge.type === "descuento" 
-                        ? "Se sumará al saldo de la cuenta" 
-                        : "Se descontará del saldo de la cuenta")
-                    : "Solo informativo, no modifica saldo"}
+                  {newCharge.requireStripePayment 
+                    ? "Se generará un link de pago real con Stripe"
+                    : "Sin pasarela de pago"}
                 </span>
               </div>
             </div>
+            {!newCharge.requireStripePayment && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Aplicar al saldo</Label>
+                <div className="col-span-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    data-testid="checkbox-charge-apply"
+                    checked={newCharge.applyToBalance}
+                    onChange={(e) => setNewCharge({...newCharge, applyToBalance: e.target.checked})}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {newCharge.applyToBalance 
+                      ? (newCharge.type === "promo" || newCharge.type === "descuento" 
+                          ? "Se sumará al saldo de la cuenta" 
+                          : "Se descontará del saldo de la cuenta")
+                      : "Solo informativo, no modifica saldo"}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsChargeDialogOpen(false)}>

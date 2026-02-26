@@ -13,6 +13,7 @@ import memorystore from 'memorystore';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { randomInt } from 'crypto';
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 
 // Extend the express-session types
 declare module "express-session" {
@@ -1228,38 +1229,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
     try {
       const adminId = req.session.userId!;
-      const { accountId, type, reason, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance } = req.body;
+      const { accountId, type, reason, title, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance, requireStripePayment } = req.body;
       
-      if (!accountId || !type || !reason) {
+      const chargeReason = reason || title;
+      if (!accountId || !type || !chargeReason) {
         return res.status(400).json({ message: "Cuenta, tipo y motivo son requeridos" });
       }
 
       const account = await storage.getAccountById(accountId);
       if (!account) return res.status(404).json({ message: "Cuenta no encontrada" });
 
+      const chargeAmount = Number(amount) || 0;
+      const chargeCurrency = currency || account.currency || "COP";
+
       const charge = await storage.createAccountCharge({
         accountId,
         type,
-        reason,
+        reason: chargeReason,
         description: description || null,
-        amount: Number(amount) || 0,
-        currency: currency || account.currency || "COP",
+        amount: chargeAmount,
+        currency: chargeCurrency,
         interestRate: Number(interestRate) || 0,
         discountPercent: Number(discountPercent) || 0,
         scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        status: status || "active",
+        status: requireStripePayment ? "pending_payment" : (status || "active"),
         appliedBy: adminId,
-        notifyUser: notifyUser !== false ? 1 : 0
+        notifyUser: notifyUser !== false ? 1 : 0,
+        stripeSessionId: null,
+        stripePaymentUrl: null,
+        stripePaymentIntentId: null,
       });
 
-      // If applyToBalance and amount > 0, deduct from account balance (cobro/multa)
-      if (applyToBalance && amount && amount > 0 && (type === 'cobro' || type === 'multa')) {
-        await storage.updateAccountBalance(accountId, -Math.abs(amount));
+      if (requireStripePayment && chargeAmount > 0) {
+        try {
+          const stripe = await getUncachableStripeClient();
+          const currencyMap: Record<string, string> = {
+            'COP': 'cop', 'USD': 'usd', 'EUR': 'eur', 'GBP': 'gbp', 'BRL': 'brl'
+          };
+          const stripeCurrency = currencyMap[chargeCurrency] || 'usd';
+          const unitAmount = ['cop'].includes(stripeCurrency)
+            ? Math.round(chargeAmount)
+            : Math.round(chargeAmount * 100);
+
+          const replitDomains = process.env.REPLIT_DOMAINS;
+          const baseUrl = replitDomains ? `https://${replitDomains.split(',')[0]}` : 'http://localhost:5000';
+
+          const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+              price_data: {
+                currency: stripeCurrency,
+                product_data: {
+                  name: `${type === 'multa' ? 'Multa' : type === 'cobro' ? 'Cobro' : type} - ${chargeReason}`,
+                  description: description || `Cobro aplicado a cuenta ${account.accountNumber}`,
+                },
+                unit_amount: unitAmount,
+              },
+              quantity: 1,
+            }],
+            mode: 'payment',
+            success_url: `${baseUrl}/payment/success?charge_id=${charge.id}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/payment/cancel?charge_id=${charge.id}`,
+            metadata: {
+              charge_id: String(charge.id),
+              account_id: String(accountId),
+              charge_type: type,
+            },
+          });
+
+          await storage.updateAccountChargeStripe(charge.id, session.id, session.url || '');
+          charge.stripeSessionId = session.id;
+          charge.stripePaymentUrl = session.url || '';
+          charge.status = 'pending_payment';
+        } catch (stripeError: any) {
+          console.error("Error creating Stripe session:", stripeError);
+          await storage.updateAccountChargeStatus(charge.id, 'active');
+        }
+      }
+
+      if (!requireStripePayment && applyToBalance && chargeAmount > 0 && (type === 'cobro' || type === 'multa')) {
+        await storage.updateAccountBalance(accountId, -Math.abs(chargeAmount));
         await storage.createTransaction({
           accountId,
-          amount: -Math.abs(amount),
-          description: `${type === 'multa' ? 'MULTA' : 'COBRO'}: ${reason}`,
+          amount: -Math.abs(chargeAmount),
+          description: `${type === 'multa' ? 'MULTA' : 'COBRO'}: ${chargeReason}`,
           date: new Date(),
           type: "withdrawal",
           reference: `CHG-${charge.id}`,
@@ -1267,13 +1321,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If promo/descuento and amount > 0, add to balance
-      if (applyToBalance && amount && amount > 0 && (type === 'promo' || type === 'descuento')) {
-        await storage.updateAccountBalance(accountId, Math.abs(amount));
+      if (!requireStripePayment && applyToBalance && chargeAmount > 0 && (type === 'promo' || type === 'descuento')) {
+        await storage.updateAccountBalance(accountId, Math.abs(chargeAmount));
         await storage.createTransaction({
           accountId,
-          amount: Math.abs(amount),
-          description: `${type === 'promo' ? 'PROMO' : 'DESCUENTO'}: ${reason}`,
+          amount: Math.abs(chargeAmount),
+          description: `${type === 'promo' ? 'PROMO' : 'DESCUENTO'}: ${chargeReason}`,
           date: new Date(),
           type: "deposit",
           reference: `CHG-${charge.id}`,
@@ -1282,18 +1335,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (notifyUser !== false) {
+        const paymentMsg = requireStripePayment ? ' - Pendiente de pago' : '';
         await storage.createCardNotification({
           userId: account.userId,
           cardId: null,
           type: `charge_${type}`,
-          message: `${type === 'multa' ? '⚠️ Multa aplicada' : type === 'cobro' ? '💳 Cobro aplicado' : type === 'promo' ? '🎁 Promoción aplicada' : type === 'acceso_especial' ? '🔓 Acceso especial otorgado' : '🏷️ Descuento aplicado'}: ${reason}`,
+          message: `${type === 'multa' ? '⚠️ Multa aplicada' : type === 'cobro' ? '💳 Cobro aplicado' : type === 'promo' ? '🎁 Promoción aplicada' : type === 'acceso_especial' ? '🔓 Acceso especial otorgado' : '🏷️ Descuento aplicado'}: ${chargeReason}${paymentMsg}`,
           read: 0
         });
       }
 
-      (global as any).broadcastAdminNotification(`[COBRO] ${type.toUpperCase()} aplicado a cuenta ${account.accountNumber}: ${reason}`);
+      (global as any).broadcastAdminNotification(`[COBRO] ${type.toUpperCase()} aplicado a cuenta ${account.accountNumber}: ${chargeReason}`);
       
-      await createAuditLog(req, "admin_charge_created", `Admin creó ${type} en cuenta ${account.accountNumber}: ${reason} ($${amount || 0})`, "charge", charge.id);
+      await createAuditLog(req, "admin_charge_created", `Admin creó ${type} en cuenta ${account.accountNumber}: ${chargeReason} ($${chargeAmount})${requireStripePayment ? ' [Pago Stripe]' : ''}`, "charge", charge.id);
 
       res.status(201).json(charge);
     } catch (error) {
@@ -1335,6 +1389,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json(charges);
     } catch (error) {
       res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // Verify Stripe payment completion
+  app.post("/api/charges/:id/verify-payment", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const chargeId = parseInt(req.params.id);
+      const { session_id } = req.body;
+      const userId = req.session.userId!;
+
+      const charge = await storage.getAccountChargeById(chargeId);
+      if (!charge) return res.status(404).json({ message: "Cobro no encontrado" });
+
+      const account = await storage.getAccountById(charge.accountId);
+      if (!account) return res.status(404).json({ message: "Cuenta no encontrada" });
+
+      const user = await storage.getUser(userId);
+      if (account.userId !== userId && (!user || user.isAdmin !== 1)) {
+        return res.status(403).json({ message: "No autorizado para verificar este pago" });
+      }
+
+      if (!charge.stripeSessionId) {
+        return res.status(400).json({ message: "Este cobro no tiene un pago de Stripe asociado" });
+      }
+
+      if (session_id && session_id !== charge.stripeSessionId) {
+        return res.status(400).json({ message: "La sesión de pago no coincide con el cobro" });
+      }
+
+      if (charge.status === 'paid') {
+        return res.status(200).json({ status: 'paid', message: 'Este pago ya fue confirmado' });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(charge.stripeSessionId);
+
+      if (session.metadata?.charge_id !== String(chargeId)) {
+        return res.status(400).json({ message: "La sesión no corresponde a este cobro" });
+      }
+
+      if (session.payment_status === 'paid') {
+        await storage.updateAccountChargeStatus(chargeId, 'paid', new Date());
+        if (session.payment_intent) {
+          await storage.updateAccountChargePaymentIntent(chargeId, session.payment_intent as string);
+        }
+
+        await storage.createCardNotification({
+          userId: account.userId,
+          cardId: null,
+          type: 'payment_confirmed',
+          message: `✅ Pago confirmado: ${charge.reason} - $${charge.amount} ${charge.currency}`,
+          read: 0
+        });
+
+        (global as any).broadcastAdminNotification(`[PAGO] Pago Stripe confirmado para cobro #${chargeId}: $${charge.amount} ${charge.currency}`);
+        
+        res.status(200).json({ status: 'paid', message: 'Pago confirmado exitosamente' });
+      } else {
+        res.status(200).json({ status: 'unpaid', message: 'Pago aún no completado' });
+      }
+    } catch (error: any) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ message: "Error verificando el pago" });
+    }
+  });
+
+  // Get Stripe publishable key for frontend
+  app.get("/api/stripe/publishable-key", async (req: Request, res: Response) => {
+    try {
+      const key = await getStripePublishableKey();
+      res.json({ publishableKey: key });
+    } catch (error) {
+      res.status(500).json({ message: "Error obteniendo clave de Stripe" });
     }
   });
 
