@@ -208,7 +208,9 @@ const HomePage = () => {
                       <div className="flex justify-between items-start mb-1">
                         <div className="flex-1">
                           <p className="text-sm font-bold text-gray-800">{charge.reason}</p>
-                          <span className="text-xs text-gray-500 capitalize">{charge.type === 'multa' ? 'Multa' : charge.type === 'cobro' ? 'Cobro' : charge.type === 'acceso_especial' ? 'Acceso Especial' : charge.type}</span>
+                          <span className="text-xs text-gray-500 capitalize">
+                            {({'multa': 'Multa', 'cobro': 'Cobro', 'promo': 'Promo', 'descuento': 'Descuento', 'acceso_especial': 'Acceso Especial'} as Record<string, string>)[charge.type] || charge.type}
+                          </span>
                         </div>
                         <span className="text-sm font-bold text-red-600 ml-2">
                           {formatCurrency(charge.amount, charge.currency as CurrencyCode)} {charge.currency}

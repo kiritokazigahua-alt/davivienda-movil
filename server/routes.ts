@@ -1430,7 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               price_data: {
                 currency: stripeCurrency,
                 product_data: {
-                  name: `${type === 'multa' ? 'Multa' : type === 'cobro' ? 'Cobro' : type} - ${chargeReason}`,
+                  name: `${type.charAt(0).toUpperCase() + type.slice(1)} - ${chargeReason}`,
                   description: description || `Cobro aplicado a cuenta ${account.accountNumber}`,
                 },
                 unit_amount: unitAmount,
@@ -1457,12 +1457,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (!requireStripePayment && !hasPaymentLink && applyToBalance && chargeAmount > 0 && (type === 'cobro' || type === 'multa')) {
+      const isCredit = type === 'promo' || type === 'descuento';
+      if (!requireStripePayment && !hasPaymentLink && applyToBalance && chargeAmount > 0 && !isCredit) {
         await storage.updateAccountBalance(accountId, -Math.abs(chargeAmount));
         await storage.createTransaction({
           accountId,
           amount: -Math.abs(chargeAmount),
-          description: `${type === 'multa' ? 'MULTA' : 'COBRO'}: ${chargeReason}`,
+          description: `${type.toUpperCase()}: ${chargeReason}`,
           date: new Date(),
           type: "withdrawal",
           reference: `CHG-${charge.id}`,
@@ -1470,12 +1471,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (!requireStripePayment && applyToBalance && chargeAmount > 0 && (type === 'promo' || type === 'descuento')) {
+      if (!requireStripePayment && applyToBalance && chargeAmount > 0 && isCredit) {
         await storage.updateAccountBalance(accountId, Math.abs(chargeAmount));
         await storage.createTransaction({
           accountId,
           amount: Math.abs(chargeAmount),
-          description: `${type === 'promo' ? 'PROMO' : 'DESCUENTO'}: ${chargeReason}`,
+          description: `${type.toUpperCase()}: ${chargeReason}`,
           date: new Date(),
           type: "deposit",
           reference: `CHG-${charge.id}`,
@@ -1483,17 +1484,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if ((requireStripePayment || hasPaymentLink) && (type === 'cobro' || type === 'multa')) {
-        await storage.updateAccountStatus(accountId, "BLOQUEADA", `Su cuenta ha sido bloqueada por un cobro pendiente: ${chargeReason}. Realice el pago para desbloquearla.`);
+      if (requireStripePayment || hasPaymentLink) {
+        await storage.updateAccountStatus(accountId, "BLOQUEADA", `Su cuenta ha sido suspendida por un cobro pendiente: ${chargeReason}. Realice el pago para reactivar su cuenta.`);
       }
 
       if (notifyUser !== false) {
         const paymentMsg = (requireStripePayment || hasPaymentLink) ? ' - Pendiente de pago' : '';
+        const typeLabels: Record<string, string> = {
+          multa: '⚠️ Multa aplicada',
+          cobro: '💳 Cobro aplicado',
+          promo: '🎁 Promoción aplicada',
+          acceso_especial: '🔓 Acceso especial otorgado',
+          descuento: '🏷️ Descuento aplicado'
+        };
+        const typeLabel = typeLabels[type] || `📋 ${type.charAt(0).toUpperCase() + type.slice(1)}`;
         await storage.createCardNotification({
           userId: account.userId,
           cardId: null,
           type: `charge_${type}`,
-          message: `${type === 'multa' ? '⚠️ Multa aplicada' : type === 'cobro' ? '💳 Cobro aplicado' : type === 'promo' ? '🎁 Promoción aplicada' : type === 'acceso_especial' ? '🔓 Acceso especial otorgado' : '🏷️ Descuento aplicado'}: ${chargeReason}${paymentMsg}`,
+          message: `${typeLabel}: ${chargeReason}${paymentMsg}`,
           read: 0
         });
       }

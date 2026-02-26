@@ -86,6 +86,7 @@ const AdminPage = () => {
   const [newCharge, setNewCharge] = useState({
     accountId: 0,
     type: "cobro",
+    customType: "",
     title: "",
     description: "",
     amount: "",
@@ -966,13 +967,19 @@ const AdminPage = () => {
       toast({ title: "Campos requeridos", description: "Completa título y cuenta destino", variant: "destructive" });
       return;
     }
+    if (newCharge.type === "personalizado" && !newCharge.customType.trim()) {
+      toast({ title: "Tipo requerido", description: "Escribe el nombre del tipo personalizado", variant: "destructive" });
+      return;
+    }
     if (newCharge.paymentMethod === "custom_link" && !newCharge.customPaymentLink) {
       toast({ title: "Link requerido", description: "Pega el link de pago (Takenos u otro)", variant: "destructive" });
       return;
     }
+    const finalType = newCharge.type === "personalizado" ? newCharge.customType.trim() : newCharge.type;
     try {
       await apiRequest("POST", "/api/admin/charges", {
         ...newCharge,
+        type: finalType,
         accountId: Number(newCharge.accountId),
         amount: newCharge.amount ? parseFloat(newCharge.amount) : null,
         requireStripePayment: newCharge.paymentMethod === "stripe",
@@ -989,7 +996,7 @@ const AdminPage = () => {
         : "El cobro fue aplicado correctamente";
       toast({ title: "Cobro creado", description: desc });
       setIsChargeDialogOpen(false);
-      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: false, paymentMethod: "custom_link", customPaymentLink: "", interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
+      setNewCharge({ accountId: 0, type: "cobro", customType: "", title: "", description: "", amount: "", currency: "COP", applyToBalance: false, paymentMethod: "custom_link", customPaymentLink: "", interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
       fetchCharges();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "No se pudo crear el cobro", variant: "destructive" });
@@ -3249,7 +3256,7 @@ const AdminPage = () => {
               <Label className="text-right">Tipo</Label>
               <Select
                 value={newCharge.type}
-                onValueChange={(v) => setNewCharge({...newCharge, type: v})}
+                onValueChange={(v) => setNewCharge({...newCharge, type: v, customType: ""})}
               >
                 <SelectTrigger className="col-span-3" data-testid="select-charge-type">
                   <SelectValue />
@@ -3260,9 +3267,22 @@ const AdminPage = () => {
                   <SelectItem value="promo">Promo</SelectItem>
                   <SelectItem value="descuento">Descuento</SelectItem>
                   <SelectItem value="acceso_especial">Acceso Especial</SelectItem>
+                  <SelectItem value="personalizado">Personalizado...</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {newCharge.type === "personalizado" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Tipo personalizado</Label>
+                <Input
+                  className="col-span-3"
+                  data-testid="input-charge-custom-type"
+                  value={newCharge.customType}
+                  onChange={(e) => setNewCharge({...newCharge, customType: e.target.value})}
+                  placeholder="Ej: Verificación, Seguro, Comisión..."
+                />
+              </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Título</Label>
               <Input
