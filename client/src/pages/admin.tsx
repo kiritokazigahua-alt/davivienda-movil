@@ -58,6 +58,28 @@ const AdminPage = () => {
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
   const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
   const [supportPhone, setSupportPhone] = useState("+57 320 9233903");
+
+  // Estado para cobros y accesos
+  const [charges, setCharges] = useState<any[]>([]);
+  const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
+  const [newCharge, setNewCharge] = useState({
+    accountId: 0,
+    type: "cobro",
+    title: "",
+    description: "",
+    amount: "",
+    currency: "COP",
+    applyToBalance: true,
+    interestRate: "",
+    discountPercent: "",
+    scheduledDate: "",
+    expiresAt: ""
+  });
+  // Per-user support phone state
+  const [userSupportPhoneDialog, setUserSupportPhoneDialog] = useState<{open: boolean; userId: number; name: string; current: string}>({
+    open: false, userId: 0, name: "", current: ""
+  });
+  const [newUserSupportPhone, setNewUserSupportPhone] = useState("");
   const [isCreateCardDialogOpen, setIsCreateCardDialogOpen] = useState(false);
   const [isEditCardDialogOpen, setIsEditCardDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<ExtendedCard | null>(null);
@@ -869,6 +891,67 @@ const AdminPage = () => {
     });
   };
   
+  // Funciones de cobros y accesos
+  const fetchCharges = async () => {
+    try {
+      const response = await fetch("/api/admin/charges");
+      if (response.ok) {
+        const data = await response.json();
+        setCharges(data);
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron cargar los cobros", variant: "destructive" });
+    }
+  };
+
+  const handleCreateCharge = async () => {
+    if (!newCharge.title || !newCharge.accountId) {
+      toast({ title: "Campos requeridos", description: "Completa título y cuenta destino", variant: "destructive" });
+      return;
+    }
+    try {
+      await apiRequest("POST", "/api/admin/charges", {
+        ...newCharge,
+        accountId: Number(newCharge.accountId),
+        amount: newCharge.amount ? parseFloat(newCharge.amount) : null,
+        interestRate: newCharge.interestRate ? parseFloat(newCharge.interestRate) : null,
+        discountPercent: newCharge.discountPercent ? parseFloat(newCharge.discountPercent) : null,
+        scheduledDate: newCharge.scheduledDate || null,
+        expiresAt: newCharge.expiresAt || null
+      });
+      toast({ title: "Cobro creado", description: "El cobro fue aplicado correctamente" });
+      setIsChargeDialogOpen(false);
+      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: true, interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
+      fetchCharges();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo crear el cobro", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteCharge = async (chargeId: number) => {
+    try {
+      await apiRequest("DELETE", `/api/admin/charges/${chargeId}`);
+      toast({ title: "Cobro eliminado", description: "El cobro fue eliminado correctamente" });
+      fetchCharges();
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo eliminar el cobro", variant: "destructive" });
+    }
+  };
+
+  const handleSaveUserSupportPhone = async () => {
+    try {
+      await apiRequest("PUT", `/api/admin/users/${userSupportPhoneDialog.userId}/support-phone`, {
+        customSupportPhone: newUserSupportPhone || null
+      });
+      toast({ title: "Teléfono actualizado", description: "El número de soporte del usuario fue actualizado" });
+      setUserSupportPhoneDialog({ open: false, userId: 0, name: "", current: "" });
+      setNewUserSupportPhone("");
+      fetchUsers();
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar el número", variant: "destructive" });
+    }
+  };
+
   // Funciones de filtrado
   const filteredUsers = userFilter 
     ? users.filter(u => 
@@ -952,6 +1035,7 @@ const AdminPage = () => {
             <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>
             <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
             <TabsTrigger value="alerts">Alertas</TabsTrigger>
+            <TabsTrigger value="cobros" onClick={fetchCharges}>Cobros & Accesos</TabsTrigger>
             <TabsTrigger value="settings" onClick={fetchSettings}>Configuración</TabsTrigger>
           </TabsList>
         </div>
@@ -1737,6 +1821,104 @@ const AdminPage = () => {
               </Button>
             </CardFooter>
           </Card>
+        </TabsContent>
+
+        {/* Cobros & Accesos Tab */}
+        <TabsContent value="cobros">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Cobros, Multas & Accesos</h2>
+            <Button data-testid="button-new-charge" onClick={() => setIsChargeDialogOpen(true)}>
+              Nuevo Cobro / Acceso
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-6">
+              {charges.length > 0 ? (
+                <div className="space-y-3">
+                  {charges.map((charge: any) => (
+                    <div key={charge.id} className="flex items-start justify-between p-4 border rounded-lg bg-muted/30">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            charge.type === "multa" ? "destructive" :
+                            charge.type === "cobro" ? "secondary" :
+                            charge.type === "promo" ? "default" :
+                            charge.type === "descuento" ? "outline" :
+                            "secondary"
+                          }>
+                            {charge.type.toUpperCase()}
+                          </Badge>
+                          <span className="font-semibold">{charge.title}</span>
+                          <Badge variant="outline" className="text-xs">{charge.currency || "COP"}</Badge>
+                        </div>
+                        {charge.description && <p className="text-sm text-muted-foreground">{charge.description}</p>}
+                        <div className="flex gap-4 text-xs text-muted-foreground">
+                          {charge.amount != null && <span>Monto: <strong>{parseFloat(charge.amount).toLocaleString("es-CO")}</strong></span>}
+                          {charge.interestRate != null && <span>Interés: <strong>{charge.interestRate}%</strong></span>}
+                          {charge.discountPercent != null && <span>Descuento: <strong>{charge.discountPercent}%</strong></span>}
+                          {charge.scheduledDate && <span>Fecha: <strong>{new Date(charge.scheduledDate).toLocaleDateString("es-CO")}</strong></span>}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Cuenta ID: {charge.accountId} • {charge.applyToBalance ? "Aplica al saldo" : "Solo informativo"} • {formatDateTime(charge.createdAt)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-red-50 text-red-600 hover:bg-red-100"
+                        data-testid={`button-delete-charge-${charge.id}`}
+                        onClick={() => handleDeleteCharge(charge.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No hay cobros registrados. Crea uno nuevo.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Per-user support phone section */}
+          <div className="mt-6">
+            <h3 className="text-xl font-bold mb-3">Teléfono de Soporte por Usuario</h3>
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Asigna un número de WhatsApp de soporte personalizado a cada usuario. Si no se asigna, se usará el número global de configuración.
+                </p>
+                {users.length > 0 ? (
+                  <div className="space-y-2">
+                    {users.filter(u => !u.isAdmin).map((u: any) => (
+                      <div key={u.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div>
+                          <p className="font-medium">{u.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Soporte: {u.customSupportPhone || <span className="italic">Global (+573209233903)</span>}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid={`button-assign-phone-${u.id}`}
+                          onClick={() => {
+                            setUserSupportPhoneDialog({ open: true, userId: u.id, name: u.name, current: u.customSupportPhone || "" });
+                            setNewUserSupportPhone(u.customSupportPhone || "");
+                          }}
+                        >
+                          Asignar Teléfono
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Carga los usuarios primero desde la pestaña de Usuarios.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
       

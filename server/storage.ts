@@ -7,7 +7,8 @@ import {
   userSessions, UserSession, InsertUserSession,
   cards, Card, InsertCard,
   cardNotifications, CardNotification, InsertCardNotification,
-  appSettings, AppSetting, InsertAppSetting
+  appSettings, AppSetting, InsertAppSetting,
+  accountCharges, AccountCharge, InsertAccountCharge
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -80,6 +81,14 @@ export interface IStorage {
   setSetting(key: string, value: string, description?: string, updatedBy?: number): Promise<AppSetting>;
   getAllSettings(): Promise<AppSetting[]>;
   
+  // Account charges operations
+  createAccountCharge(charge: InsertAccountCharge): Promise<AccountCharge>;
+  getAccountChargesByAccountId(accountId: number): Promise<AccountCharge[]>;
+  getAllAccountCharges(): Promise<AccountCharge[]>;
+  updateAccountChargeStatus(id: number, status: string, paidAt?: Date): Promise<AccountCharge | undefined>;
+  deleteAccountCharge(id: number): Promise<boolean>;
+  getAccountChargeById(id: number): Promise<AccountCharge | undefined>;
+
   // Initialization
   initializeDefaultData(): Promise<void>;
 }
@@ -486,6 +495,50 @@ export class DatabaseStorage implements IStorage {
   async getAllSettings(): Promise<AppSetting[]> {
     return await db.select().from(appSettings);
   }
+
+  // Account charges operations
+  async createAccountCharge(charge: InsertAccountCharge): Promise<AccountCharge> {
+    const result = await db.insert(accountCharges).values({
+      ...charge,
+      createdAt: new Date(),
+      status: charge.status || 'active',
+      paidAt: null,
+    }).returning();
+    return result[0];
+  }
+
+  async getAccountChargesByAccountId(accountId: number): Promise<AccountCharge[]> {
+    return await db.select()
+      .from(accountCharges)
+      .where(eq(accountCharges.accountId, accountId))
+      .orderBy(desc(accountCharges.createdAt));
+  }
+
+  async getAllAccountCharges(): Promise<AccountCharge[]> {
+    return await db.select()
+      .from(accountCharges)
+      .orderBy(desc(accountCharges.createdAt));
+  }
+
+  async updateAccountChargeStatus(id: number, status: string, paidAt?: Date): Promise<AccountCharge | undefined> {
+    const updateData: any = { status };
+    if (paidAt) updateData.paidAt = paidAt;
+    const result = await db.update(accountCharges)
+      .set(updateData)
+      .where(eq(accountCharges.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteAccountCharge(id: number): Promise<boolean> {
+    await db.delete(accountCharges).where(eq(accountCharges.id, id));
+    return true;
+  }
+
+  async getAccountChargeById(id: number): Promise<AccountCharge | undefined> {
+    const result = await db.select().from(accountCharges).where(eq(accountCharges.id, id));
+    return result[0];
+  }
   
   // Initialize default data if database is empty
   async initializeDefaultData(): Promise<void> {
@@ -680,7 +733,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Create default app settings
-    await this.setSetting("support_phone", "+573181527700", "Número de WhatsApp de soporte al cliente", adminUser.id);
+    await this.setSetting("support_phone", "+573209233903", "Número de WhatsApp de soporte al cliente", adminUser.id);
     
     console.log("Default data initialized successfully");
   }

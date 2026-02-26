@@ -6,7 +6,8 @@ import { z } from "zod";
 import { 
   insertUserSchema, 
   insertTransactionSchema, 
-  insertBeneficiarySchema 
+  insertBeneficiarySchema,
+  insertAccountChargeSchema
 } from "@shared/schema";
 import memorystore from 'memorystore';
 import { WebSocketServer } from 'ws';
@@ -216,7 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         document: user.document,
         phone: user.phone,
         lastLogin: user.lastLogin,
-        isAdmin: user.isAdmin || 0
+        isAdmin: user.isAdmin || 0,
+        customSupportPhone: user.customSupportPhone || null
       });
     } catch (error) {
       console.error("Error obteniendo usuario:", error);
@@ -1155,6 +1157,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ACCOUNT CHARGES ROUTES (Admin)
+  app.get("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const charges = await storage.getAllAccountCharges();
+      const chargesWithInfo = await Promise.all(charges.map(async (charge) => {
+        const account = await storage.getAccountById(charge.accountId);
+        const user = account ? await storage.getUser(account.userId) : null;
+        return { ...charge, accountNumber: account?.accountNumber, userName: user?.name };
+      }));
+      res.status(200).json(chargesWithInfo);
+    } catch (error) {
+      console.error("Error obteniendo cobros:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.post("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const adminId = req.session.userId!;
+      const { accountId, type, reason, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance } = req.body;
+      
+      if (!accountId || !type || !reason) {
+        return res.status(400).json({ message: "Cuenta, tipo y motivo son requeridos" });
+      }
+
+      const account = await storage.getAccountById(accountId);
+      if (!account) return res.status(404).json({ message: "Cuenta no encontrada" });
+
+      const charge = await storage.createAccountCharge({
+        accountId,
+        type,
+        reason,
+        description: description || null,
+        amount: Number(amount) || 0,
+        currency: currency || account.currency || "COP",
+        interestRate: Number(interestRate) || 0,
+        discountPercent: Number(discountPercent) || 0,
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        status: status || "active",
+        appliedBy: adminId,
+        notifyUser: notifyUser !== false ? 1 : 0
+      });
+
+      // If applyToBalance and amount > 0, deduct from account balance (cobro/multa)
+      if (applyToBalance && amount && amount > 0 && (type === 'cobro' || type === 'multa')) {
+        await storage.updateAccountBalance(accountId, -Math.abs(amount));
+        await storage.createTransaction({
+          accountId,
+          amount: -Math.abs(amount),
+          description: `${type === 'multa' ? 'MULTA' : 'COBRO'}: ${reason}`,
+          date: new Date(),
+          type: "withdrawal",
+          reference: `CHG-${charge.id}`,
+          recipientId: null
+        });
+      }
+
+      // If promo/descuento and amount > 0, add to balance
+      if (applyToBalance && amount && amount > 0 && (type === 'promo' || type === 'descuento')) {
+        await storage.updateAccountBalance(accountId, Math.abs(amount));
+        await storage.createTransaction({
+          accountId,
+          amount: Math.abs(amount),
+          description: `${type === 'promo' ? 'PROMO' : 'DESCUENTO'}: ${reason}`,
+          date: new Date(),
+          type: "deposit",
+          reference: `CHG-${charge.id}`,
+          recipientId: null
+        });
+      }
+
+      if (notifyUser !== false) {
+        await storage.createCardNotification({
+          userId: account.userId,
+          cardId: null,
+          type: `charge_${type}`,
+          message: `${type === 'multa' ? '⚠️ Multa aplicada' : type === 'cobro' ? '💳 Cobro aplicado' : type === 'promo' ? '🎁 Promoción aplicada' : type === 'acceso_especial' ? '🔓 Acceso especial otorgado' : '🏷️ Descuento aplicado'}: ${reason}`,
+          read: 0
+        });
+      }
+
+      (global as any).broadcastAdminNotification(`[COBRO] ${type.toUpperCase()} aplicado a cuenta ${account.accountNumber}: ${reason}`);
+      res.status(201).json(charge);
+    } catch (error) {
+      console.error("Error creando cobro:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.put("/api/admin/charges/:id/status", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const paidAt = status === 'paid' ? new Date() : undefined;
+      const charge = await storage.updateAccountChargeStatus(id, status, paidAt);
+      if (!charge) return res.status(404).json({ message: "Cobro no encontrado" });
+      res.status(200).json(charge);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/admin/charges/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAccountCharge(id);
+      res.status(200).json({ message: "Cobro eliminado" });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // Get charges for the logged-in user's account
+  app.get("/api/charges", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const account = await storage.getAccountByUserId(userId);
+      if (!account) return res.status(404).json({ message: "Cuenta no encontrada" });
+      const charges = await storage.getAccountChargesByAccountId(account.id);
+      res.status(200).json(charges);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // Admin assign custom support phone to a user
+  app.put("/api/admin/users/:id/support-phone", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { customSupportPhone } = req.body;
+      const user = await storage.updateUser(userId, { customSupportPhone: customSupportPhone || null });
+      if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+      res.status(200).json({ message: "Número de soporte actualizado", user });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // Get support phone for logged-in user (checks custom first, falls back to global)
+  app.get("/api/my/support-phone", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      if (user?.customSupportPhone) {
+        return res.status(200).json({ value: user.customSupportPhone, source: "custom" });
+      }
+      const setting = await storage.getSetting("support_phone");
+      return res.status(200).json({ value: setting?.value || "+573209233903", source: "global" });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // SETTINGS ROUTES
   app.get("/api/settings/:key", async (req: Request, res: Response) => {
     try {

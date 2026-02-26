@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, doublePrecision, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   phone: text("phone").notNull(),
   lastLogin: timestamp("last_login"),
   isAdmin: integer("is_admin").default(0).notNull(),
+  customSupportPhone: text("custom_support_phone"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -130,6 +131,32 @@ export const insertCardNotificationSchema = createInsertSchema(cardNotifications
   createdAt: true,
 });
 
+// Account Charges Schema (Cobros, Multas, Accesos Especiales, Promos, Descuentos)
+export const accountCharges = pgTable("account_charges", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => accounts.id),
+  type: text("type").notNull(), // multa, cobro, acceso_especial, promo, descuento
+  reason: text("reason").notNull(),
+  description: text("description"),
+  amount: doublePrecision("amount").notNull().default(0),
+  currency: text("currency").notNull().default("COP"),
+  interestRate: doublePrecision("interest_rate").default(0),
+  discountPercent: doublePrecision("discount_percent").default(0),
+  scheduledDate: timestamp("scheduled_date"),
+  expiresAt: timestamp("expires_at"),
+  status: text("status").notNull().default("active"), // active, paid, cancelled, expired
+  appliedBy: integer("applied_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  paidAt: timestamp("paid_at"),
+  notifyUser: integer("notify_user").default(1),
+});
+
+export const insertAccountChargeSchema = createInsertSchema(accountCharges).omit({
+  id: true,
+  createdAt: true,
+  paidAt: true,
+});
+
 // App Settings Schema for Admin configurable settings
 export const appSettings = pgTable("app_settings", {
   id: serial("id").primaryKey(),
@@ -192,3 +219,6 @@ export type CardNotification = typeof cardNotifications.$inferSelect;
 
 export type InsertAppSetting = z.infer<typeof insertAppSettingSchema>;
 export type AppSetting = typeof appSettings.$inferSelect;
+
+export type InsertAccountCharge = z.infer<typeof insertAccountChargeSchema>;
+export type AccountCharge = typeof accountCharges.$inferSelect;

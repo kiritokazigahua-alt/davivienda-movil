@@ -6,14 +6,15 @@ import { CurrencyCode } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
+import { useSupportPhone } from '@/hooks/use-support-phone';
 
 const HomePage = () => {
   const { user, account, transactions, beneficiaries, getAccount, getTransactions, getBeneficiaries } = useStore();
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [supportPhone, setSupportPhone] = useState("+57 320 9233903");
   const { toast } = useToast();
   const [_, navigate] = useLocation();
+  const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,22 +33,6 @@ const HomePage = () => {
     };
 
     fetchData();
-    
-    // Fetch support phone from settings
-    const fetchSupportPhone = async () => {
-      try {
-        const response = await fetch('/api/settings/support_phone');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.value) {
-            setSupportPhone(data.value);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching support phone:", error);
-      }
-    };
-    fetchSupportPhone();
   }, []);
 
   // Acciones para cada botón
@@ -76,14 +61,8 @@ const HomePage = () => {
     navigate('/retirar');
   };
   
-  // Función para contactar a atención al cliente por WhatsApp
   const handleContactSupport = () => {
-    // Mensaje predefinido con el código de error
-    const message = "Hola, necesito ayuda con mi cuenta. Tengo un error #4004";
-    // Crear la URL de WhatsApp con el número y mensaje
-    const whatsappUrl = `https://wa.me/${supportPhone}?text=${encodeURIComponent(message)}`;
-    // Abrir WhatsApp en una nueva pestaña
-    window.open(whatsappUrl, '_blank');
+    openWhatsApp("Hola, necesito ayuda con mi cuenta. Tengo un error #4004");
   };
 
   return (

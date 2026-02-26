@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { ArrowLeft, CreditCard, User, ClipboardCheck, Phone, Mail, Calendar, FileText, DownloadCloud, History, ShieldCheck } from 'lucide-react';
+import { useSupportPhone } from '@/hooks/use-support-phone';
 import { User as UserType, Account, Transaction, CurrencyCode } from '@/types';
 import { formatCurrency, maskAccountNumber, formatDateTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ const ProfilePage = () => {
   const { data: user, isLoading: isLoadingUser } = useQuery<UserType>({
     queryKey: ['/api/user'],
   });
+  
+  const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
   
   const { data: account, isLoading: isLoadingAccount } = useQuery<Account>({
     queryKey: ['/api/account'],
@@ -399,24 +402,16 @@ const ProfilePage = () => {
                 variant="outline" 
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => {
-                  // El mensaje personalizado si es José Nevares
                   const message = user && user.name === "JOSE NEVARES" 
                     ? "Hola, soy Jose Nevarez, estoy presentando el error #4004 *ASESOR*"
                     : "Indicar al asesor el código #4004";
-                  
-                  // Construir URL para WhatsApp
-                  const whatsappUrl = `https://wa.me/573209233903?text=${encodeURIComponent(message)}`;
-                  
-                  // Mostrar toast informativo personalizado
                   toast({
                     title: "Atención al Cliente",
                     description: user && user.name === "JOSE NEVARES"
                       ? "Conectando con un asesor por WhatsApp. Su mensaje personalizado incluye el código #4004."
                       : "Conectando con un asesor por WhatsApp. Recuerde indicarle el código #4004."
                   });
-                  
-                  // Abrir WhatsApp en nueva pestaña
-                  window.open(whatsappUrl, '_blank');
+                  openWhatsApp(message);
                 }}
               >
                 <svg 

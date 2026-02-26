@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ScanLine, QrCode, Headphones, CreditCard, List, User, Fingerprint } from 'lucide-react';
+import { useSupportPhone } from '@/hooks/use-support-phone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 // SVG Casa Davivienda Logo (icono de la casa blanca)
@@ -40,6 +41,7 @@ const LoginPage = () => {
   const { login } = useStore();
   const [_, navigate] = useLocation();
   const { toast } = useToast();
+  const { callSupport, openWhatsApp } = useSupportPhone();
 
   const handleDocumentSubmit = () => {
     if (!username) {
@@ -248,22 +250,11 @@ const LoginPage = () => {
           
           <Button 
             onClick={() => {
-              // El mensaje para el código
-              const message = "Olvidé mi clave. Código #4004";
-              
-              // Construir URL para WhatsApp
-              const whatsappUrl = `https://wa.me/573181527700?text=${encodeURIComponent(message)}`;
-              
-              // Mostrar toast informativo
               toast({
                 title: "Atención al Cliente",
                 description: "Conectando con un asesor por WhatsApp. Recuerde indicarle el código #4004."
               });
-              
-              // Abrir WhatsApp en nueva pestaña
-              window.open(whatsappUrl, '_blank');
-              
-              // Cerrar diálogo
+              openWhatsApp("Olvidé mi clave. Código #4004");
               setShowRecoveryDialog(false);
             }} 
             className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
@@ -378,7 +369,7 @@ const LoginPage = () => {
       <div className="fixed bottom-4 right-4 z-20">
         <button 
           className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-2 border-white"
-          onClick={() => window.location.href = "tel:+573181527700"}
+          onClick={callSupport}
         >
           <Headphones size={24} />
         </button>
@@ -567,7 +558,7 @@ const LoginPage = () => {
       <div className="fixed bottom-4 right-4">
         <button 
           className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-2 border-white"
-          onClick={() => window.location.href = "tel:+573181527700"}
+          onClick={callSupport}
         >
           <Headphones size={24} />
         </button>

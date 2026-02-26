@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, MessageCircleIcon, AlertCircle } from 'lucide-react';
+import { useSupportPhone } from '@/hooks/use-support-phone';
+import { useStore } from '@/lib/store';
 import { Account } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CURRENCIES, CurrencyCode } from '@shared/schema';
@@ -18,6 +20,8 @@ import { CURRENCIES, CurrencyCode } from '@shared/schema';
 const TransfersPage = () => {
   const [_, navigate] = useLocation();
   const { toast } = useToast();
+  const { user } = useStore();
+  const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
   const [amount, setAmount] = useState('');
   const [bank, setBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
@@ -121,16 +125,8 @@ const TransfersPage = () => {
     transferMutation.mutate();
   };
   
-  // Función para contactar a atención al cliente por WhatsApp
   const handleContactSupport = () => {
-    // Número actualizado de WhatsApp para atención al cliente
-    const phoneNumber = "+573181527700";
-    // Mensaje predefinido con el código de error
-    const message = "Hola, necesito ayuda con mi cuenta. Tengo un error #4004";
-    // Crear la URL de WhatsApp con el número y mensaje
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    // Abrir WhatsApp en una nueva pestaña
-    window.open(whatsappUrl, '_blank');
+    openWhatsApp("Hola, necesito ayuda con mi cuenta. Tengo un error #4004");
   };
 
   // Banks organized by currency
