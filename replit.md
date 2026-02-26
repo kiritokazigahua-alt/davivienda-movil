@@ -61,6 +61,21 @@ Preferred communication style: Simple, everyday language.
 - `applyToBalance=true` auto-deducts (cobro/multa) or adds (promo/descuento) to account balance
 - API: `GET/POST /api/admin/charges`, `DELETE /api/admin/charges/:id`, `GET /api/charges` (user)
 
+### Currency Display System
+- `formatCurrency(amount, code)` - Shows `$1,000.00` with proper locale per currency
+- `formatCurrencyWithCode(amount, code)` - Shows `$1,000.00 USD` with code suffix
+- Balance displays show symbol at start + currency code in smaller text at end
+- USD uses en-US locale (comma thousands), EUR uses de-DE locale (dot thousands), COP uses es-CO locale
+- USD/EUR/GBP/BRL show 2 decimal places; COP shows 0 decimals
+- Currency-based bank selection: USD shows US banks, EUR shows EU banks by country, etc.
+
+### PWA Mobile App
+- Manifest.json configured for standalone display
+- Apple mobile web app capable with viewport-fit=cover
+- Hidden scrollbars for native app feel
+- Safe area insets for notched devices
+- Portrait orientation lock
+
 ### Recent Changes (February 2026)
 - Updated support phone to +573208646620
 - Fixed support phone sync: useSupportPhone hook now polls every 30s so admin updates reflect to users
@@ -68,6 +83,10 @@ Preferred communication style: Simple, everyday language.
 - Added Cobros & Accesos admin tab with full charge creation dialog
 - Added account_charges table with CRUD operations
 - Removed all hardcoded phone numbers across the app
+- Improved currency formatting: symbol at start, currency code at end (e.g., $1,000.00 USD)
+- Added proper locale-based number formatting per currency
+- Added decimals for USD/EUR/GBP/BRL currencies
+- Added manifest.json link to HTML for PWA install support
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management

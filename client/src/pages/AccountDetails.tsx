@@ -53,8 +53,8 @@ export default function AccountDetails() {
             <div className="flex flex-col sm:flex-row justify-between items-end gap-4 border-t border-gray-100 pt-6">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Saldo total</p>
-                <p className="text-4xl font-bold text-gray-900 tracking-tight">
-                  {formatCurrency(account.balance, account.currency as CurrencyCode)}
+                <p className="text-4xl font-bold text-gray-900 tracking-tight" data-testid="text-account-balance">
+                  {formatCurrency(account.balance, account.currency as CurrencyCode)}<span className="text-lg ml-1 opacity-60">{account.currency || 'COP'}</span>
                 </p>
               </div>
               <div className="flex gap-3">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { User, Account, Transaction, UserSession, CURRENCIES, CurrencyCode, Card as CardType, CardNotification } from "@/types";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWithCode, formatDateTime } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1257,7 +1257,7 @@ const AdminPage = () => {
                           <td className="p-4">{account.userName || 'Desconocido'}</td>
                           <td className="p-4">{account.accountNumber}</td>
                           <td className="p-4">{account.accountType}</td>
-                          <td className="p-4">{formatCurrency(account.balance, account.currency as CurrencyCode)}</td>
+                          <td className="p-4">{formatCurrencyWithCode(account.balance, account.currency as CurrencyCode)}</td>
                           <td className="p-4">
                             <Badge variant="outline" className="text-xs">
                               {CURRENCIES[account.currency as CurrencyCode || 'COP']?.symbol} {account.currency || 'COP'}

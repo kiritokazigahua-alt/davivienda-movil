@@ -120,8 +120,8 @@ export default function Dashboard() {
 
                   <div className="mb-6 relative z-10">
                     <p className="text-xs text-gray-400 mb-1">Saldo disponible</p>
-                    <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                      {formatCurrency(account.balance, account.currency as CurrencyCode)}
+                    <p className="text-3xl font-bold text-gray-900 tracking-tight" data-testid={`text-balance-${account.id}`}>
+                      {formatCurrency(account.balance, account.currency as CurrencyCode)}<span className="text-sm ml-1 opacity-60">{account.currency || 'COP'}</span>
                     </p>
                   </div>
 

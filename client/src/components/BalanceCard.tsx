@@ -2,10 +2,11 @@ import { Eye, FileText, Share2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/lib/store';
 import { formatCurrency } from '@/lib/utils';
+import { CurrencyCode } from '@/types';
 
 const BalanceCard = () => {
   const setAccount = useStore((state) => state.setAccount);
-  
+
   const { data: account, isLoading } = useQuery({
     queryKey: ['/api/account'],
     onSuccess: (data) => {
@@ -13,7 +14,6 @@ const BalanceCard = () => {
     },
   });
 
-  // Format account number for display
   const formatAccountNumber = (accountNumber?: string) => {
     if (!accountNumber) return '**** 0000';
     return `**** ${accountNumber.slice(-4)}`;
@@ -26,8 +26,10 @@ const BalanceCard = () => {
         <p className="text-xs opacity-80">{formatAccountNumber(account?.accountNumber)}</p>
         <div className="mt-2">
           <p className="text-sm">Saldo disponible</p>
-          <p className="text-2xl font-bold">
-            {isLoading ? 'Cargando...' : formatCurrency(account?.balance || 0)}
+          <p className="text-2xl font-bold" data-testid="text-card-balance">
+            {isLoading ? 'Cargando...' : (
+              <>{formatCurrency(account?.balance || 0, account?.currency as CurrencyCode)}<span className="text-sm ml-1 opacity-70">{account?.currency || 'COP'}</span></>
+            )}
           </p>
         </div>
       </div>

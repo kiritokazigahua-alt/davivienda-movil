@@ -1,4 +1,4 @@
-import { Transaction } from '@/types';
+import { Transaction, CurrencyCode } from '@/types';
 import { 
   SquareSplitHorizontal, 
   ArrowDown, 
@@ -14,10 +14,10 @@ import { es } from 'date-fns/locale';
 
 interface TransactionItemProps {
   transaction: Transaction;
+  currency?: CurrencyCode;
 }
 
-const TransactionItem = ({ transaction }: TransactionItemProps) => {
-  // Get icon based on transaction type and amount
+const TransactionItem = ({ transaction, currency }: TransactionItemProps) => {
   const getIcon = () => {
     if (transaction.type === 'transfer') {
       return <SquareSplitHorizontal className="text-neutral" size={20} />;
@@ -26,7 +26,6 @@ const TransactionItem = ({ transaction }: TransactionItemProps) => {
     } else if (transaction.type === 'withdrawal') {
       return <ArrowUp className="text-neutral" size={20} />;
     } else if (transaction.type === 'payment') {
-      // For payments, determine icon based on description
       if (transaction.description.toLowerCase().includes('enel') || 
           transaction.description.toLowerCase().includes('electricidad')) {
         return <CreditCard className="text-neutral" size={20} />;
@@ -42,13 +41,11 @@ const TransactionItem = ({ transaction }: TransactionItemProps) => {
     }
   };
 
-  // Format date for display
   const formatTransactionDate = (dateString: string) => {
     const date = new Date(dateString);
     return format(date, 'd MMM, h:mm a', { locale: es });
   };
 
-  // Get type label
   const getTypeLabel = () => {
     switch (transaction.type) {
       case 'transfer':
@@ -65,7 +62,7 @@ const TransactionItem = ({ transaction }: TransactionItemProps) => {
   };
 
   return (
-    <div className="transaction-item py-3 border-b last:border-b-0">
+    <div className="transaction-item py-3 border-b last:border-b-0" data-testid={`transaction-item-${transaction.id}`}>
       <div className="flex items-center">
         <div className="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center mr-3">
           {getIcon()}
@@ -76,7 +73,8 @@ const TransactionItem = ({ transaction }: TransactionItemProps) => {
         </div>
         <div className="text-right">
           <p className={`font-medium text-sm ${transaction.amount < 0 ? 'text-red-600' : 'text-success'}`}>
-            {transaction.amount < 0 ? '' : '+'}{formatCurrency(transaction.amount)}
+            {transaction.amount < 0 ? '' : '+'}{formatCurrency(transaction.amount, currency)}
+            {currency && <span className="text-[10px] ml-0.5 opacity-60">{currency}</span>}
           </p>
           <p className="text-xs text-gray-500">{getTypeLabel()}</p>
         </div>

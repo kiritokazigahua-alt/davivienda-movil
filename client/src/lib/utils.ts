@@ -8,16 +8,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const LOCALE_MAP: Record<string, string> = {
+  COP: 'es-CO',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  BRL: 'pt-BR',
+};
+
+const DECIMAL_CURRENCIES = new Set(['USD', 'EUR', 'GBP', 'BRL']);
+
 export function formatCurrency(amount: number, currencyCode?: CurrencyCode): string {
   const currency = currencyCode || 'COP';
   const currencyInfo = CURRENCIES[currency] || CURRENCIES.COP;
-  
-  const formatted = new Intl.NumberFormat('es-CO', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+  const locale = LOCALE_MAP[currency] || 'es-CO';
+  const useDecimals = DECIMAL_CURRENCIES.has(currency);
+
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: useDecimals ? 2 : 0,
+    maximumFractionDigits: useDecimals ? 2 : 0,
   }).format(amount);
-  
-  return `${currencyInfo.symbol} ${formatted}`;
+
+  return `${currencyInfo.symbol}${formatted}`;
+}
+
+export function formatCurrencyWithCode(amount: number, currencyCode?: CurrencyCode): string {
+  const currency = currencyCode || 'COP';
+  const base = formatCurrency(amount, currency as CurrencyCode);
+  return `${base} ${currency}`;
 }
 
 export function getCurrencySymbol(currencyCode?: CurrencyCode): string {
@@ -36,15 +54,14 @@ export function maskAccountNumber(accountNumber: string): string {
 }
 
 export function getTransactionIcon(type: string, description: string = '') {
-  // Logic to determine appropriate icon based on transaction type and description
-  return 'swap_horiz'; // Default icon
+  return 'swap_horiz';
 }
 
 export function formatDateTime(isoDate: string, showTime: boolean = true): string {
   const date = new Date(isoDate);
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  
+
   if (isToday && showTime) {
     return `Hoy, ${format(date, 'h:mm a', { locale: es })}`;
   } else if (showTime) {

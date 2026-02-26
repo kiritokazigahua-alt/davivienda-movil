@@ -4,7 +4,7 @@ import { useLocation } from 'wouter';
 import { ArrowLeft, CreditCard, User, ClipboardCheck, Phone, Mail, Calendar, FileText, DownloadCloud, History, ShieldCheck } from 'lucide-react';
 import { useSupportPhone } from '@/hooks/use-support-phone';
 import { User as UserType, Account, Transaction, CurrencyCode } from '@/types';
-import { formatCurrency, maskAccountNumber, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatCurrencyWithCode, maskAccountNumber, formatDateTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -221,7 +221,7 @@ const ProfilePage = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-gray-700">Saldo Disponible</span>
                     </div>
-                    <span className="font-medium text-[#D50000]">{formatCurrency(account?.balance || 0, account?.currency as CurrencyCode)}</span>
+                    <span className="font-medium text-[#D50000]" data-testid="text-profile-balance">{formatCurrency(account?.balance || 0, account?.currency as CurrencyCode)}<span className="text-xs ml-1 opacity-70">{account?.currency || 'COP'}</span></span>
                   </div>
                 </div>
               </CardContent>
@@ -304,7 +304,7 @@ const ProfilePage = () => {
                               transaction.type === 'withdrawal' || transaction.type === 'transfer' ? 'text-red-600' : 
                               'text-gray-800'
                             }`}>
-                              {transaction.type === 'deposit' ? '+' : '-'} {formatCurrency(transaction.amount)}
+                              {transaction.type === 'deposit' ? '+' : '-'} {formatCurrency(transaction.amount, account?.currency as CurrencyCode)}<span className="text-[10px] ml-0.5 opacity-60">{account?.currency || 'COP'}</span>
                             </div>
                           </div>
                         ))

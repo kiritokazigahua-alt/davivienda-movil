@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Calendar, Download, Search } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import { Transaction } from '@/types';
+import { Transaction, CurrencyCode } from '@/types';
+import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +15,8 @@ const HistoryPage = () => {
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const account = useStore((state) => state.account);
+  const acctCurrency = (account?.currency as CurrencyCode) || 'COP';
 
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
@@ -168,7 +171,7 @@ const HistoryPage = () => {
                     </div>
                     <div className="text-right">
                       <p className={`font-bold ${getTransactionColor(transaction.type)}`}>
-                        {getTransactionSign(transaction.type)} {formatCurrency(transaction.amount)}
+                        {getTransactionSign(transaction.type)} {formatCurrency(transaction.amount, acctCurrency)}<span className="text-[10px] ml-0.5 opacity-60">{acctCurrency}</span>
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {getTransactionTypeLabel(transaction.type)}

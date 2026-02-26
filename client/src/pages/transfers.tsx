@@ -5,6 +5,7 @@ import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { queryClient } from '@/lib/queryClient';
+import { formatCurrencyWithCode } from '@/lib/utils';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -231,21 +232,6 @@ const TransfersPage = () => {
   const accountCurrency = account?.currency || "COP";
   const bankOptions = banksByCurrency[accountCurrency] || banksByCurrency.COP;
   
-  // Currency formatting helper
-  const formatCurrency = (value: number, currency: string) => {
-    const localeMap: Record<string, string> = {
-      COP: "es-CO",
-      USD: "en-US",
-      EUR: "de-DE",
-      GBP: "en-GB",
-      BRL: "pt-BR"
-    };
-    const locale = localeMap[currency] || "es-CO";
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: currency
-    }).format(value);
-  };
 
   const accountTypeOptions = [
     { value: "ahorros", label: "Cuenta de Ahorros" },
@@ -314,7 +300,7 @@ const TransfersPage = () => {
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
           <p className="text-sm text-gray-600">Saldo disponible</p>
           <p className="text-2xl font-bold">
-            {account ? formatCurrency(account.balance, accountCurrency) : 'Cargando...'}
+            {account ? formatCurrencyWithCode(account.balance, accountCurrency as any) : 'Cargando...'}
           </p>
         </div>
         
