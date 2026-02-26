@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard } from 'lucide-react';
+import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, ExternalLink } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatCurrencyWithCode } from '@/lib/utils';
 import { CurrencyCode } from '@/types';
@@ -7,11 +7,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { useSupportPhone } from '@/hooks/use-support-phone';
+import { apiRequest } from '@/lib/queryClient';
 
 const HomePage = () => {
   const { user, account, transactions, beneficiaries, getAccount, getTransactions, getBeneficiaries } = useStore();
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [pendingCharges, setPendingCharges] = useState<any[]>([]);
   const { toast } = useToast();
   const [_, navigate] = useLocation();
   const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
@@ -21,6 +23,14 @@ const HomePage = () => {
       try {
         setLoading(true);
         await Promise.all([getAccount(), getTransactions(), getBeneficiaries()]);
+        try {
+          const res = await fetch('/api/charges', { credentials: 'include' });
+          if (res.ok) {
+            const charges = await res.json();
+            const pending = charges.filter((c: any) => c.status === 'pending_payment' && c.stripePaymentUrl);
+            setPendingCharges(pending);
+          }
+        } catch {}
       } catch (error) {
         toast({
           title: "Error",
@@ -156,9 +166,37 @@ const HomePage = () => {
                       <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-black font-medium">{account.statusMessage}</p>
                     </div>
+                    {pendingCharges.length > 0 && (
+                      <div className="mt-2 space-y-2" data-testid="pending-charges-list">
+                        {pendingCharges.map((charge: any) => (
+                          <div key={charge.id} className="bg-white border border-red-200 rounded-lg p-3" data-testid={`charge-item-${charge.id}`}>
+                            <div className="flex justify-between items-start mb-1">
+                              <p className="text-sm font-bold text-gray-800">{charge.reason}</p>
+                              <span className="text-sm font-bold text-red-600">
+                                {formatCurrency(charge.amount, charge.currency as CurrencyCode)} {charge.currency}
+                              </span>
+                            </div>
+                            {charge.description && (
+                              <p className="text-xs text-gray-500 mb-2">{charge.description}</p>
+                            )}
+                            <a
+                              href={charge.stripePaymentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
+                              data-testid={`button-pay-charge-${charge.id}`}
+                            >
+                              <ExternalLink size={16} className="mr-2" />
+                              Pagar ahora
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <button 
                       onClick={handleContactSupport}
                       className="mt-2 bg-red-600 text-white text-sm rounded-md px-3 py-1.5 flex items-center w-auto"
+                      data-testid="button-contact-support"
                     >
                       <MessageCircleIcon size={16} className="mr-1" />
                       Contactar soporte

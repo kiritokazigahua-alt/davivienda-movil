@@ -32,11 +32,17 @@ export class WebhookHandlers {
 
             const account = await storage.getAccountById(charge.accountId);
             if (account) {
+              const remainingCharges = await storage.getAccountChargesByAccountId(charge.accountId);
+              const hasPendingCharges = remainingCharges.some((c: any) => c.id !== chargeId && c.status === 'pending_payment');
+              if (!hasPendingCharges && account.status === 'BLOQUEADA') {
+                await storage.updateAccountStatus(charge.accountId, 'ACTIVA', '');
+              }
+
               await storage.createCardNotification({
                 userId: account.userId,
                 cardId: null,
                 type: 'payment_confirmed',
-                message: `✅ Pago confirmado: ${charge.reason} - $${charge.amount} ${charge.currency}`,
+                message: `Pago confirmado: ${charge.reason} - $${charge.amount} ${charge.currency}`,
                 read: 0
               });
             }

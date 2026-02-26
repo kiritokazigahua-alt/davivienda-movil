@@ -1941,15 +1941,36 @@ const AdminPage = () => {
                           </p>
                         )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-red-50 text-red-600 hover:bg-red-100"
-                        data-testid={`button-delete-charge-${charge.id}`}
-                        onClick={() => handleDeleteCharge(charge.id)}
-                      >
-                        Eliminar
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        {charge.status === 'pending_payment' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-green-50 text-green-700 hover:bg-green-100"
+                            data-testid={`button-mark-paid-${charge.id}`}
+                            onClick={async () => {
+                              try {
+                                await apiRequest("PUT", `/api/admin/charges/${charge.id}/status`, { status: 'paid' });
+                                toast({ title: "Pago confirmado", description: "El cobro fue marcado como pagado y la cuenta desbloqueada" });
+                                fetchCharges();
+                              } catch (err: any) {
+                                toast({ title: "Error", description: err.message || "No se pudo marcar como pagado", variant: "destructive" });
+                              }
+                            }}
+                          >
+                            Marcar pagado
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-50 text-red-600 hover:bg-red-100"
+                          data-testid={`button-delete-charge-${charge.id}`}
+                          onClick={() => handleDeleteCharge(charge.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

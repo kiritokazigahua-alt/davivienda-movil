@@ -1346,8 +1346,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      if ((requireStripePayment || hasPaymentLink) && (type === 'cobro' || type === 'multa')) {
+        await storage.updateAccountStatus(accountId, "BLOQUEADA", `Su cuenta ha sido bloqueada por un cobro pendiente: ${chargeReason}. Realice el pago para desbloquearla.`);
+      }
+
       if (notifyUser !== false) {
-        const paymentMsg = requireStripePayment ? ' - Pendiente de pago' : '';
+        const paymentMsg = (requireStripePayment || hasPaymentLink) ? ' - Pendiente de pago' : '';
         await storage.createCardNotification({
           userId: account.userId,
           cardId: null,
@@ -1375,6 +1379,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paidAt = status === 'paid' ? new Date() : undefined;
       const charge = await storage.updateAccountChargeStatus(id, status, paidAt);
       if (!charge) return res.status(404).json({ message: "Cobro no encontrado" });
+
+      if (status === 'paid') {
+        const account = await storage.getAccountById(charge.accountId);
+        if (account) {
+          const remainingCharges = await storage.getAccountChargesByAccountId(charge.accountId);
+          const hasPendingCharges = remainingCharges.some((c: any) => c.id !== id && c.status === 'pending_payment');
+          if (!hasPendingCharges && account.status === 'BLOQUEADA') {
+            await storage.updateAccountStatus(charge.accountId, 'ACTIVA', '');
+          }
+          await storage.createCardNotification({
+            userId: account.userId,
+            cardId: null,
+            type: 'payment_confirmed',
+            message: `Pago confirmado: ${charge.reason} - $${charge.amount} ${charge.currency}`,
+            read: 0
+          });
+        }
+      }
+
       res.status(200).json(charge);
     } catch (error) {
       res.status(500).json({ message: "Error en el servidor" });
