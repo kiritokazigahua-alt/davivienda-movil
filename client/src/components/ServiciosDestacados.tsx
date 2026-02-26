@@ -67,20 +67,20 @@ export const ServiciosDestacados = () => {
       
       <div className="grid grid-cols-3 gap-6 mb-6">
         <ServicioDestacado 
-          icon={<Key className="h-6 w-6 text-red-600" />} 
+          icon={<Key className="h-6 w-6 text-primary" />} 
           title="Transferir con llaves"
           label="Nuevo"
           onClick={handleTransferConLlaves}
         />
         
         <ServicioDestacado 
-          icon={<CreditCard className="h-6 w-6 text-red-600" />} 
+          icon={<CreditCard className="h-6 w-6 text-primary" />} 
           title="Recargas"
           onClick={handleRecargas}
         />
         
         <ServicioDestacado 
-          icon={<MessageSquare className="h-6 w-6 text-red-600" />} 
+          icon={<MessageSquare className="h-6 w-6 text-primary" />} 
           title="Paz y salvo"
           onClick={handlePazYSalvo}
         />
@@ -88,13 +88,13 @@ export const ServiciosDestacados = () => {
       
       <div className="grid grid-cols-3 gap-6">
         <ServicioDestacado 
-          icon={<FileCheck className="h-6 w-6 text-red-600" />} 
+          icon={<FileCheck className="h-6 w-6 text-primary" />} 
           title="Certificados"
           onClick={handleCertificados}
         />
         
         <ServicioDestacado 
-          icon={<CreditCard className="h-6 w-6 text-red-600" />} 
+          icon={<CreditCard className="h-6 w-6 text-primary" />} 
           title="Retirar sin tarjeta"
           onClick={handleRetirarSinTarjeta}
         />

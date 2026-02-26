@@ -35,10 +35,10 @@ const CertificadosPage = () => {
   };
 
   const certificateTypes = [
-    { id: 'productos', name: 'Certificado de Productos', icon: <FileText className="h-8 w-8 text-red-600" /> },
-    { id: 'tributario', name: 'Certificado Tributario', icon: <FileText className="h-8 w-8 text-red-600" /> },
-    { id: 'extracto', name: 'Extractos Bancarios', icon: <FileText className="h-8 w-8 text-red-600" /> },
-    { id: 'paz-salvo', name: 'Paz y Salvo', icon: <FileText className="h-8 w-8 text-red-600" /> },
+    { id: 'productos', name: 'Certificado de Productos', icon: <FileText className="h-8 w-8 text-primary" /> },
+    { id: 'tributario', name: 'Certificado Tributario', icon: <FileText className="h-8 w-8 text-primary" /> },
+    { id: 'extracto', name: 'Extractos Bancarios', icon: <FileText className="h-8 w-8 text-primary" /> },
+    { id: 'paz-salvo', name: 'Paz y Salvo', icon: <FileText className="h-8 w-8 text-primary" /> },
   ];
 
   return (
@@ -46,7 +46,7 @@ const CertificadosPage = () => {
       {isLoading && <LoadingOverlay text="Generando certificado..." />}
       
       {/* Header */}
-      <div className="bg-red-600 text-white p-4">
+      <div className="bg-primary text-white p-4">
         <div className="flex items-center">
           <button 
             onClick={() => navigate('/home')} 
@@ -62,7 +62,7 @@ const CertificadosPage = () => {
         {/* Info Card */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
           <div className="flex items-center space-x-3">
-            <FileText className="h-8 w-8 text-red-600" />
+            <FileText className="h-8 w-8 text-primary" />
             <div>
               <h3 className="font-medium text-gray-800">Genere sus certificados</h3>
               <p className="text-sm text-gray-600">
@@ -88,7 +88,7 @@ const CertificadosPage = () => {
               <CardFooter className="pt-0">
                 <Button
                   onClick={() => handleGenerateCertificate(cert.id)}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  className="w-full bg-primary hover:bg-primary/90 text-white"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Generar
@@ -122,7 +122,7 @@ const CertificadosPage = () => {
             </Select>
             
             <Button 
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-primary hover:bg-primary/90 text-white"
               onClick={() => handleGenerateCertificate('extracto')}
             >
               <Download className="h-4 w-4 mr-2" />

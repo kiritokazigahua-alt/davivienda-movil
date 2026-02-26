@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, MoreHorizontal, Home, CreditCard, QrCode, Send, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle } from 'lucide-react';
+import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatCurrencyWithCode } from '@/lib/utils';
 import { CurrencyCode } from '@/types';
@@ -36,13 +36,6 @@ const HomePage = () => {
   }, []);
 
   // Acciones para cada botón
-  const handleTransferButtonClick = () => navigate('/transfers');
-  const handlePayButtonClick = () => navigate('/payments');
-  const handleQRButtonClick = () => navigate('/qr');
-  const handleHomeButtonClick = () => navigate('/home');
-  const handleProfileButtonClick = () => navigate('/profile');
-
-  // Acciones para servicios destacados
   const handleKeyTransfer = () => navigate('/transfers');
   
   const handleRecharge = () => {
@@ -275,7 +268,7 @@ const HomePage = () => {
           </section>
 
           {/* Mis finanzas */}
-          <section className="mt-6 px-4 mb-24">
+          <section className="mt-6 px-4 mb-4">
             <h2 className="text-xl font-bold mb-3">Mis finanzas</h2>
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <div 
@@ -295,28 +288,6 @@ const HomePage = () => {
           </section>
         </div>
 
-        {/* Navigation Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-3 flex justify-around">
-          <button onClick={handleHomeButtonClick} className="flex flex-col items-center text-red-600">
-            <Home size={24} />
-            <span className="text-xs mt-1">Inicio</span>
-          </button>
-          
-          <button onClick={handlePayButtonClick} className="flex flex-col items-center text-gray-500">
-            <CreditCard size={24} />
-            <span className="text-xs mt-1">Pagar</span>
-          </button>
-          
-          <button onClick={handleQRButtonClick} className="flex flex-col items-center text-gray-500">
-            <QrCode size={24} />
-            <span className="text-xs mt-1">QR</span>
-          </button>
-          
-          <button onClick={handleTransferButtonClick} className="flex flex-col items-center text-gray-500">
-            <Send size={24} />
-            <span className="text-xs mt-1">Transferir</span>
-          </button>
-        </nav>
       </div>
     </>
   );

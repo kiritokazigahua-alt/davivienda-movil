@@ -144,10 +144,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   async setUserStatus(id: number, status: string): Promise<User | undefined> {
-    // In this data model, user status would need to be added as a column
-    // For now, we're not storing user status but returning the user
-    // This maintains compatibility with the interface
-    return this.getUser(id);
+    const result = await db.update(users)
+      .set({ status })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
   }
 
   // Account operations

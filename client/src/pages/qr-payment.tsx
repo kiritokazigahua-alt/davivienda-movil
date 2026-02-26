@@ -122,7 +122,7 @@ const QrPaymentPage = () => {
       {isLoading && <LoadingOverlay text="Procesando pago..." />}
       
       {/* Header */}
-      <div className="bg-red-600 text-white p-4">
+      <div className="bg-primary text-white p-4">
         <div className="flex items-center">
           <button 
             onClick={() => navigate('/qr')} 
@@ -138,7 +138,7 @@ const QrPaymentPage = () => {
         {/* Información del destinatario */}
         {recipientInfo && (
           <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-            <h3 className="font-medium mb-3 text-red-600">Datos del Destinatario</h3>
+            <h3 className="font-medium mb-3 text-primary">Datos del Destinatario</h3>
             <div className="space-y-2">
               <div>
                 <p className="text-sm text-gray-600">Nombre</p>
@@ -204,7 +204,7 @@ const QrPaymentPage = () => {
             <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={!amount || isLoading}
               >
                 Confirmar y pagar
@@ -229,7 +229,7 @@ const QrPaymentPage = () => {
               Has realizado un pago exitoso de <span className="font-bold">${amount}</span> a {recipientInfo?.userName}.
             </p>
             <Button 
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-primary hover:bg-primary/90 text-white"
               onClick={handleSuccessClose}
             >
               Volver al inicio

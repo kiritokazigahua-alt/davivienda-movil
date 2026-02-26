@@ -243,7 +243,6 @@ const AdminPage = () => {
     const newSocket = new WebSocket(wsUrl);
     
     newSocket.onopen = () => {
-      console.log("Conexión WebSocket establecida");
       setIsConnected(true);
     };
     
@@ -254,20 +253,15 @@ const AdminPage = () => {
           setNotifications(prev => [data.message, ...prev]);
           fetchDashboardData();
         }
-      } catch (error) {
-        console.error("Error al procesar el mensaje:", error);
-      }
+      } catch {}
     };
     
     newSocket.onclose = () => {
-      console.log("Conexión WebSocket cerrada");
       setIsConnected(false);
       setTimeout(connectWebSocket, 5000);
     };
     
-    newSocket.onerror = (error) => {
-      console.error("Error en la conexión WebSocket:", error);
-    };
+    newSocket.onerror = () => {};
     
     setSocket(newSocket);
   };
@@ -299,7 +293,6 @@ const AdminPage = () => {
       
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo estadísticas:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -317,7 +310,6 @@ const AdminPage = () => {
       setUsers(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo usuarios:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -335,7 +327,6 @@ const AdminPage = () => {
       setAccounts(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo cuentas:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -353,7 +344,6 @@ const AdminPage = () => {
       setTransactions(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo transacciones:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -371,7 +361,6 @@ const AdminPage = () => {
       setSessions(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo sesiones:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -389,7 +378,6 @@ const AdminPage = () => {
       setAdminCards(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo tarjetas:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -409,7 +397,6 @@ const AdminPage = () => {
         setSupportPhone(phoneSetting.value);
       }
     } catch (error) {
-      console.error("Error obteniendo configuraciones:", error);
     }
   };
 
@@ -421,7 +408,6 @@ const AdminPage = () => {
       setAuditLogs(data);
       hideLoading();
     } catch (error) {
-      console.error("Error obteniendo audit logs:", error);
       hideLoading();
       toast({
         title: "Error",
@@ -3092,7 +3078,7 @@ const AdminPage = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CURRENCIES.map((c) => (
+                  {Object.keys(CURRENCIES).map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>

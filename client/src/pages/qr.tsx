@@ -33,7 +33,7 @@ const QrPage = () => {
     return () => {
       if (scannerRef.current) {
         scannerRef.current.stop().catch(err => {
-          console.error('Error al detener el escáner:', err);
+          
         });
       }
     };
@@ -113,10 +113,7 @@ const QrPage = () => {
           // QR detectado con éxito
           handleQrCodeSuccess(decodedText);
         },
-        (errorMessage) => {
-          // Error en el escaneo (normalmente sólo logs, no detiene el escáner)
-          console.log(errorMessage);
-        }
+        () => {}
       ).catch((err) => {
         toast({
           title: "Error en la cámara",
@@ -148,7 +145,7 @@ const QrPage = () => {
           });
         }
       }).catch(err => {
-        console.error('Error al detener el escáner:', err);
+        
       });
     }
   };
@@ -264,7 +261,7 @@ const QrPage = () => {
         if (!open && scannerRef.current) {
           // Detener el escáner cuando se cierre el diálogo
           scannerRef.current.stop().catch(err => {
-            console.error('Error al detener el escáner:', err);
+            
           });
         }
         setShowScanDialog(open);
@@ -289,7 +286,7 @@ const QrPage = () => {
                 onClick={() => {
                   if (scannerRef.current) {
                     scannerRef.current.stop().catch(err => {
-                      console.error('Error al detener el escáner:', err);
+                      
                     });
                   }
                   setShowScanDialog(false);

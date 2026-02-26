@@ -42,7 +42,7 @@ const ProfilePage = () => {
         setTimeout(() => setDataCopied(null), 2000);
       },
       (err) => {
-        console.error('No se pudo copiar: ', err);
+        
         toast({
           title: "Error al copiar",
           description: "No se pudo copiar la información",

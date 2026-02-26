@@ -33,7 +33,7 @@ export const WithdrawalCodeDialog = ({
         setTimeout(() => setCopied(false), 2000);
       },
       (err) => {
-        console.error('No se pudo copiar el código: ', err);
+        
       }
     );
   };
@@ -151,7 +151,7 @@ export const WithdrawMoneyModal = () => {
         setTimeout(() => setCopied(false), 2000);
       },
       (err) => {
-        console.error('No se pudo copiar el código: ', err);
+        
       }
     );
   };

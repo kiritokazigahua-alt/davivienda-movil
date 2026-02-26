@@ -99,7 +99,7 @@ const RecargasPage = () => {
       {isLoading && <LoadingOverlay text="Procesando recarga..." />}
       
       {/* Header */}
-      <div className="bg-red-600 text-white p-4">
+      <div className="bg-primary text-white p-4">
         <div className="flex items-center">
           <button 
             onClick={() => navigate('/home')} 
@@ -122,7 +122,7 @@ const RecargasPage = () => {
         
         {/* Recarga Form */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-          <h3 className="font-medium mb-4 text-red-600">Realizar Recarga</h3>
+          <h3 className="font-medium mb-4 text-primary">Realizar Recarga</h3>
           
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleRecarga(); }}>
             <div>
@@ -236,7 +236,7 @@ const RecargasPage = () => {
             <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={
                   recargaType === 'celular' ? (!phoneNumber || !operator || !amount) : !amount
                 }

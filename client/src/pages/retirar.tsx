@@ -119,7 +119,7 @@ const RetirarPage = () => {
       {isLoading && <LoadingOverlay text="Procesando retiro..." />}
       
       {/* Header */}
-      <div className="bg-red-600 text-white p-4">
+      <div className="bg-primary text-white p-4">
         <div className="flex items-center">
           <button 
             onClick={() => navigate('/home')} 
@@ -141,7 +141,7 @@ const RetirarPage = () => {
             </div>
             <div className="mt-3">
               <Button 
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center"
+                className="bg-primary hover:bg-primary/90 text-white flex items-center"
                 onClick={handleContactSupport}
               >
                 <MessageCircleIcon className="h-4 w-4 mr-2" />
@@ -162,7 +162,7 @@ const RetirarPage = () => {
             </div>
             <div className="mt-3">
               <Button 
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center"
+                className="bg-primary hover:bg-primary/90 text-white flex items-center"
                 onClick={handleContactSupport}
               >
                 <MessageCircleIcon className="h-4 w-4 mr-2" />
@@ -234,7 +234,7 @@ const RetirarPage = () => {
             <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 disabled={!amount}
               >
                 Generar código

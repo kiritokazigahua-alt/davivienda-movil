@@ -96,6 +96,15 @@ Preferred communication style: Simple, everyday language.
 - Enhanced PWA manifest with shortcuts, categories, scope
 - Added data-testid attributes to interactive elements
 - Cleaned up dead files (Dashboard.tsx, AccountDetails.tsx, Login.tsx, use-auth.ts)
+- Fixed CURRENCIES.map crash in admin Cobros dialog (was treating object as array)
+- Fixed support phone polling spam: only polls when page visible, reduced to 2min interval
+- Fixed server error handler re-throwing causing crashes
+- Replaced Math.random() with crypto.randomInt() for secure randomness
+- Removed all console.log/error from client-side code
+- Standardized colors: bg-red-600 → bg-primary across pages
+- Fixed incomplete setUserStatus storage method to actually persist status
+- Removed duplicate navigation bar from HomePage (was conflicting with AppLayout BottomNavBar)
+- Deleted unused files: MobileNavigation.tsx, duplicate Input.tsx, temp_zip/ directory, redundant build scripts
 
 ### Security Implementation
 - **Session Security**: HTTP-only cookies with secure session management
@@ -104,6 +113,7 @@ Preferred communication style: Simple, everyday language.
 - **Authentication Guards**: Route protection for authenticated and admin users
 - **Admin Route Protection**: All `/api/admin/*` routes protected with `isAdmin` middleware
 - **Audit Trail**: Complete audit logging of all significant operations
+- **Secure Randomness**: crypto.randomInt() used for account numbers, withdrawal codes, card numbers
 
 ## External Dependencies
 

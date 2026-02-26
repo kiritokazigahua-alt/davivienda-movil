@@ -60,7 +60,6 @@ export const useStore = create<AuthState>((set, get) => ({
       set({ account });
       return account;
     } catch (error) {
-      console.error('Error fetching account:', error);
       throw error;
     }
   },
@@ -72,7 +71,6 @@ export const useStore = create<AuthState>((set, get) => ({
       set({ transactions });
       return transactions;
     } catch (error) {
-      console.error('Error fetching transactions:', error);
       throw error;
     }
   },
@@ -84,7 +82,6 @@ export const useStore = create<AuthState>((set, get) => ({
       set({ beneficiaries });
       return beneficiaries;
     } catch (error) {
-      console.error('Error fetching beneficiaries:', error);
       throw error;
     }
   },
@@ -125,8 +122,6 @@ export const useStore = create<AuthState>((set, get) => ({
       // Clear queryClient cache
       queryClient.clear();
     } catch (error) {
-      console.error('Error during logout:', error);
-      
       // If we couldn't connect to the server, we should still logout the user locally
       set({ 
         isAuthenticated: false,

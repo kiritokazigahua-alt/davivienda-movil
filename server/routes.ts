@@ -12,6 +12,7 @@ import {
 import memorystore from 'memorystore';
 import { WebSocketServer } from 'ws';
 import path from 'path';
+import { randomInt } from 'crypto';
 
 // Extend the express-session types
 declare module "express-session" {
@@ -159,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser(userData);
       
       // Create account for user
-      const accountNumber = Math.floor(Math.random() * 10000000000).toString().padStart(10, '0');
+      const accountNumber = randomInt(0, 10000000000).toString().padStart(10, '0');
       await storage.createAccount({
         userId: user.id,
         accountNumber,
@@ -523,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json({ 
         message: "Retiro exitoso",
         transaction: transaction,
-        withdrawalCode: Math.floor(100000 + Math.random() * 900000) // 6-digit code
+        withdrawalCode: randomInt(100000, 1000000)
       });
     } catch (error) {
       console.error("Error en retiro:", error);
@@ -603,7 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser(userData);
       
       // Create account for user
-      const accountNumber = Math.floor(Math.random() * 10000000000).toString().padStart(10, '0');
+      const accountNumber = randomInt(0, 10000000000).toString().padStart(10, '0');
       await storage.createAccount({
         userId: user.id,
         accountNumber,
@@ -1449,7 +1450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a pending card request
       const card = await storage.createCard({
         userId,
-        cardNumber: "****-****-****-" + Math.floor(1000 + Math.random() * 9000),
+        cardNumber: "****-****-****-" + randomInt(1000, 9999),
         cardType: req.body.cardType || "debit",
         cardBrand: req.body.cardBrand || "visa",
         expirationDate: "00/00",
