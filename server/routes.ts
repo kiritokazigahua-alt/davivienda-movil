@@ -279,9 +279,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if account is blocked
-      if (senderAccount.status === "BLOQUEADA") {
+      if (senderAccount.status === "BLOQUEADA" || !senderAccount.status || senderAccount.status === "PENDIENTE") {
+        const message = senderAccount.status === "BLOQUEADA" 
+          ? "No puede realizar transferencias. Cuenta bloqueada por retenciones pendientes."
+          : "Debe activar su cuenta solicitando su tarjeta o inscribiendo su TAG para realizar transferencias.";
         return res.status(403).json({ 
-          message: "No puede realizar transferencias. Cuenta bloqueada por retenciones pendientes.",
+          message,
           error_code: "4004"
         });
       }

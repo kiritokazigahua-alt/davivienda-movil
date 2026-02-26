@@ -505,7 +505,7 @@ export class DatabaseStorage implements IStorage {
       name: "Administrador Davivienda",
       email: "admin@davivienda.com",
       document: "1000000001",
-      phone: "3209876543",
+      phone: "3209233903",
       isAdmin: 1
     });
     

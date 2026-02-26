@@ -405,7 +405,7 @@ const ProfilePage = () => {
                     : "Indicar al asesor el código #4004";
                   
                   // Construir URL para WhatsApp
-                  const whatsappUrl = `https://wa.me/573181527700?text=${encodeURIComponent(message)}`;
+                  const whatsappUrl = `https://wa.me/573209233903?text=${encodeURIComponent(message)}`;
                   
                   // Mostrar toast informativo personalizado
                   toast({

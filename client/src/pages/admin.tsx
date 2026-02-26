@@ -57,7 +57,7 @@ const AdminPage = () => {
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
   const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
-  const [supportPhone, setSupportPhone] = useState("+573181527700");
+  const [supportPhone, setSupportPhone] = useState("+57 320 9233903");
   const [isCreateCardDialogOpen, setIsCreateCardDialogOpen] = useState(false);
   const [isEditCardDialogOpen, setIsEditCardDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<ExtendedCard | null>(null);

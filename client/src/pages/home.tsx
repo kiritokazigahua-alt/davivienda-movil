@@ -11,7 +11,7 @@ const HomePage = () => {
   const { user, account, transactions, beneficiaries, getAccount, getTransactions, getBeneficiaries } = useStore();
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [supportPhone, setSupportPhone] = useState("+573181527700");
+  const [supportPhone, setSupportPhone] = useState("+57 320 9233903");
   const { toast } = useToast();
   const [_, navigate] = useLocation();
 
@@ -164,6 +164,17 @@ const HomePage = () => {
                     {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {(!account?.status || account?.status === "PENDIENTE") && (
+                  <div className="mt-2 p-3 bg-red-100 border border-red-300 rounded-lg">
+                    <p className="text-sm text-red-800 font-bold mb-2">Para activar su cuenta debe solicitar su tarjeta física o inscribir su TAG</p>
+                    <Button 
+                      onClick={() => navigate('/cards')} 
+                      className="bg-red-600 hover:bg-red-700 text-white w-full text-xs"
+                    >
+                      Solicitar Tarjeta / TAG
+                    </Button>
+                  </div>
+                )}
                 {account?.status === "BLOQUEADA" && (
                   <div className="mt-2 p-2 bg-yellow-50 border border-yellow-400 rounded-md">
                     <div className="flex items-start">
