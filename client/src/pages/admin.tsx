@@ -89,7 +89,8 @@ const AdminPage = () => {
     amount: "",
     currency: "COP",
     applyToBalance: false,
-    requireStripePayment: true,
+    paymentMethod: "custom_link" as "stripe" | "custom_link" | "none",
+    customPaymentLink: "",
     interestRate: "",
     discountPercent: "",
     scheduledDate: "",
@@ -933,19 +934,30 @@ const AdminPage = () => {
       toast({ title: "Campos requeridos", description: "Completa título y cuenta destino", variant: "destructive" });
       return;
     }
+    if (newCharge.paymentMethod === "custom_link" && !newCharge.customPaymentLink) {
+      toast({ title: "Link requerido", description: "Pega el link de pago (Takenos u otro)", variant: "destructive" });
+      return;
+    }
     try {
       await apiRequest("POST", "/api/admin/charges", {
         ...newCharge,
         accountId: Number(newCharge.accountId),
         amount: newCharge.amount ? parseFloat(newCharge.amount) : null,
+        requireStripePayment: newCharge.paymentMethod === "stripe",
+        customPaymentLink: newCharge.paymentMethod === "custom_link" ? newCharge.customPaymentLink : null,
         interestRate: newCharge.interestRate ? parseFloat(newCharge.interestRate) : null,
         discountPercent: newCharge.discountPercent ? parseFloat(newCharge.discountPercent) : null,
         scheduledDate: newCharge.scheduledDate || null,
         expiresAt: newCharge.expiresAt || null
       });
-      toast({ title: "Cobro creado", description: newCharge.requireStripePayment ? "Cobro creado con link de pago Stripe" : "El cobro fue aplicado correctamente" });
+      const desc = newCharge.paymentMethod === "stripe" 
+        ? "Cobro creado con link de pago Stripe" 
+        : newCharge.paymentMethod === "custom_link"
+        ? "Cobro creado con link de pago personalizado"
+        : "El cobro fue aplicado correctamente";
+      toast({ title: "Cobro creado", description: desc });
       setIsChargeDialogOpen(false);
-      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: false, requireStripePayment: true, interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
+      setNewCharge({ accountId: 0, type: "cobro", title: "", description: "", amount: "", currency: "COP", applyToBalance: false, paymentMethod: "custom_link", customPaymentLink: "", interestRate: "", discountPercent: "", scheduledDate: "", expiresAt: "" });
       fetchCharges();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "No se pudo crear el cobro", variant: "destructive" });
@@ -1896,7 +1908,7 @@ const AdminPage = () => {
                           {charge.userName ? ` (${charge.userName})` : ''}
                           {' • '}{formatDateTime(charge.createdAt)}
                         </p>
-                        {charge.stripePaymentUrl && charge.status === 'pending_payment' && (
+                        {(charge.stripePaymentUrl) && charge.status === 'pending_payment' && (
                           <div className="flex items-center gap-2 mt-1">
                             <a
                               href={charge.stripePaymentUrl}
@@ -1905,7 +1917,9 @@ const AdminPage = () => {
                               className="text-xs text-blue-600 hover:underline"
                               data-testid={`link-payment-${charge.id}`}
                             >
-                              Link de pago Stripe
+                              {charge.stripePaymentUrl.includes('takenos') ? 'Link de pago Takenos' : 
+                               charge.stripePaymentUrl.includes('stripe') ? 'Link de pago Stripe' : 
+                               'Link de pago externo'}
                             </a>
                             <Button
                               variant="ghost"
@@ -3168,23 +3182,34 @@ const AdminPage = () => {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Pago con Stripe</Label>
-              <div className="col-span-3 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  data-testid="checkbox-charge-stripe"
-                  checked={newCharge.requireStripePayment}
-                  onChange={(e) => setNewCharge({...newCharge, requireStripePayment: e.target.checked, applyToBalance: e.target.checked ? false : newCharge.applyToBalance})}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-muted-foreground">
-                  {newCharge.requireStripePayment 
-                    ? "Se generará un link de pago real con Stripe"
-                    : "Sin pasarela de pago"}
-                </span>
-              </div>
+              <Label className="text-right">Método de pago</Label>
+              <Select
+                value={newCharge.paymentMethod}
+                onValueChange={(v: "stripe" | "custom_link" | "none") => setNewCharge({...newCharge, paymentMethod: v, applyToBalance: v !== "none" ? false : newCharge.applyToBalance})}
+              >
+                <SelectTrigger className="col-span-3" data-testid="select-payment-method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom_link">Link de pago (Takenos / otro)</SelectItem>
+                  <SelectItem value="stripe">Stripe (genera link automático)</SelectItem>
+                  <SelectItem value="none">Sin pasarela de pago</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            {!newCharge.requireStripePayment && (
+            {newCharge.paymentMethod === "custom_link" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Link de pago</Label>
+                <Input
+                  className="col-span-3"
+                  data-testid="input-custom-payment-link"
+                  value={newCharge.customPaymentLink}
+                  onChange={(e) => setNewCharge({...newCharge, customPaymentLink: e.target.value})}
+                  placeholder="https://app.takenos.com/pay/..."
+                />
+              </div>
+            )}
+            {newCharge.paymentMethod === "none" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Aplicar al saldo</Label>
                 <div className="col-span-3 flex items-center gap-2">

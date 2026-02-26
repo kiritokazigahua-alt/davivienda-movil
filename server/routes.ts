@@ -1229,11 +1229,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
     try {
       const adminId = req.session.userId!;
-      const { accountId, type, reason, title, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance, requireStripePayment } = req.body;
+      const { accountId, type, reason, title, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance, requireStripePayment, customPaymentLink } = req.body;
       
       const chargeReason = reason || title;
       if (!accountId || !type || !chargeReason) {
         return res.status(400).json({ message: "Cuenta, tipo y motivo son requeridos" });
+      }
+
+      if (customPaymentLink && typeof customPaymentLink === 'string' && customPaymentLink.trim()) {
+        try {
+          const url = new URL(customPaymentLink.trim());
+          if (!['http:', 'https:'].includes(url.protocol)) {
+            return res.status(400).json({ message: "El link de pago debe ser una URL válida (https://...)" });
+          }
+        } catch {
+          return res.status(400).json({ message: "El link de pago debe ser una URL válida" });
+        }
       }
 
       const account = await storage.getAccountById(accountId);
@@ -1242,6 +1253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const chargeAmount = Number(amount) || 0;
       const chargeCurrency = currency || account.currency || "COP";
 
+      const hasPaymentLink = !!(customPaymentLink && typeof customPaymentLink === 'string' && customPaymentLink.trim());
       const charge = await storage.createAccountCharge({
         accountId,
         type,
@@ -1253,15 +1265,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         discountPercent: Number(discountPercent) || 0,
         scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        status: requireStripePayment ? "pending_payment" : (status || "active"),
+        status: (requireStripePayment || hasPaymentLink) ? "pending_payment" : (status || "active"),
         appliedBy: adminId,
         notifyUser: notifyUser !== false ? 1 : 0,
         stripeSessionId: null,
-        stripePaymentUrl: null,
+        stripePaymentUrl: hasPaymentLink ? customPaymentLink : null,
         stripePaymentIntentId: null,
       });
 
-      if (requireStripePayment && chargeAmount > 0) {
+      if (requireStripePayment && !hasPaymentLink && chargeAmount > 0) {
         try {
           const stripe = await getUncachableStripeClient();
           const currencyMap: Record<string, string> = {
@@ -1308,7 +1320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (!requireStripePayment && applyToBalance && chargeAmount > 0 && (type === 'cobro' || type === 'multa')) {
+      if (!requireStripePayment && !hasPaymentLink && applyToBalance && chargeAmount > 0 && (type === 'cobro' || type === 'multa')) {
         await storage.updateAccountBalance(accountId, -Math.abs(chargeAmount));
         await storage.createTransaction({
           accountId,

@@ -139,9 +139,12 @@ Preferred communication style: Simple, everyday language.
   - Webhook route registered BEFORE `express.json()` middleware in `server/index.ts`
   - `stripe-replit-sync` handles schema migrations, webhook management, and data sync
   - Payment pages: `/payment/success` and `/payment/cancel`
-  - Admin can create charges with real Stripe payment links
-  - Users redirected to Stripe Checkout, payment verified on return
   - `account_charges` table has `stripeSessionId`, `stripePaymentUrl`, `stripePaymentIntentId` fields
+- **Custom Payment Links (Takenos / External)**: Admin can paste any external payment link (e.g., Takenos TakeLink URL) when creating a charge
+  - Stored in `stripePaymentUrl` field alongside Stripe-generated URLs
+  - Charge gets `pending_payment` status; admin must manually mark as paid when external payment is confirmed
+  - Payment method selector in admin charge form: "Link de pago (Takenos / otro)" (default), "Stripe (genera link automático)", "Sin pasarela de pago"
+  - Backend validates custom URLs (must be valid https:// URLs)
 
 ### Optional Integrations
 - **WebSocket**: For real-time admin notifications and updates
