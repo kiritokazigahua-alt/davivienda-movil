@@ -21,6 +21,7 @@ import PaymentCancelPage from "@/pages/payment-cancel";
 import NotFound from "@/pages/not-found";
 
 import AppLayout from "@/layouts/AppLayout";
+import { IdleTimeout } from "@/components/IdleTimeout";
 
 import { useStore } from "@/lib/store";
 import { useEffect } from "react";
@@ -84,6 +85,7 @@ function App() {
   return (
     <TooltipProvider>
       <Toaster />
+      <IdleTimeout />
       <Switch>
         <Route path="/" component={LoginPage} />
         <Route path="/payment/success" component={PaymentSuccessPage} />

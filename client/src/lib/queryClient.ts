@@ -2,6 +2,14 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 401) {
+      const store = await import('@/lib/store');
+      const state = store.useStore.getState();
+      if (state.isAuthenticated) {
+        state.logout();
+        window.location.href = '/';
+      }
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -35,6 +43,15 @@ export const getQueryFn: <T>(options: {
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
+    }
+
+    if (res.status === 401 && unauthorizedBehavior === "throw") {
+      const store = await import('@/lib/store');
+      const state = store.useStore.getState();
+      if (state.isAuthenticated) {
+        state.logout();
+        window.location.href = '/';
+      }
     }
 
     await throwIfResNotOk(res);

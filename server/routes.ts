@@ -13,7 +13,76 @@ import memorystore from 'memorystore';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { randomInt } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+
+const BCRYPT_ROUNDS = 10;
+
+const failedLoginAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil: number }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000;
+
+function checkBruteForce(key: string): { blocked: boolean; remainingMs: number } {
+  const record = failedLoginAttempts.get(key);
+  if (!record) return { blocked: false, remainingMs: 0 };
+  if (record.lockedUntil > Date.now()) {
+    return { blocked: true, remainingMs: record.lockedUntil - Date.now() };
+  }
+  if (Date.now() - record.lastAttempt > LOCK_DURATION_MS) {
+    failedLoginAttempts.delete(key);
+    return { blocked: false, remainingMs: 0 };
+  }
+  return { blocked: false, remainingMs: 0 };
+}
+
+function recordFailedLogin(key: string): void {
+  const record = failedLoginAttempts.get(key) || { count: 0, lastAttempt: 0, lockedUntil: 0 };
+  record.count += 1;
+  record.lastAttempt = Date.now();
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCK_DURATION_MS;
+    record.count = 0;
+  }
+  failedLoginAttempts.set(key, record);
+}
+
+function clearFailedLogins(key: string): void {
+  failedLoginAttempts.delete(key);
+}
+
+const recentTransactions = new Map<number, number[]>();
+const MAX_TRANSACTIONS_PER_MINUTE = 5;
+const TRANSACTION_WINDOW_MS = 60 * 1000;
+const MAX_SINGLE_TRANSACTION = 50000000;
+
+function checkTransactionFrequency(userId: number): boolean {
+  const now = Date.now();
+  const timestamps = recentTransactions.get(userId) || [];
+  const recent = timestamps.filter(t => now - t < TRANSACTION_WINDOW_MS);
+  recentTransactions.set(userId, recent);
+  return recent.length >= MAX_TRANSACTIONS_PER_MINUTE;
+}
+
+function recordTransaction(userId: number): void {
+  const timestamps = recentTransactions.get(userId) || [];
+  timestamps.push(Date.now());
+  recentTransactions.set(userId, timestamps);
+}
+
+function isBcryptHash(value: string): boolean {
+  return /^\$2[aby]\$\d{2}\$.{53}$/.test(value);
+}
+
+async function verifyPassword(plaintext: string, stored: string): Promise<boolean> {
+  if (isBcryptHash(stored)) {
+    return bcrypt.compare(plaintext, stored);
+  }
+  return plaintext === stored;
+}
+
+async function hashPassword(plaintext: string): Promise<string> {
+  return bcrypt.hash(plaintext, BCRYPT_ROUNDS);
+}
 
 // Extend the express-session types
 declare module "express-session" {
@@ -40,17 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.set('trust proxy', 1);
   
-  // Setup session middleware
   app.use(session({
     cookie: { 
-      maxAge: 86400000,
+      maxAge: 30 * 60 * 1000,
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax'
     },
     store: new MemoryStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
+      checkPeriod: 3600000
     }),
+    rolling: true,
     resave: false,
     saveUninitialized: false,
     secret: process.env.SESSION_SECRET || 'davivienda-secret'
@@ -93,6 +162,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  app.get("/api/auth/session-status", (req: Request, res: Response) => {
+    if (req.session && req.session.userId) {
+      return res.status(200).json({ active: true, sessionTimeout: 30 * 60 * 1000 });
+    }
+    return res.status(200).json({ active: false });
+  });
+
   // AUTH ROUTES
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
@@ -102,16 +178,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Documento y clave son requeridos" });
       }
 
+      const loginKey = (req.ip || 'unknown') + ':' + username;
+      const bruteCheck = checkBruteForce(loginKey);
+      if (bruteCheck.blocked) {
+        const minutesLeft = Math.ceil(bruteCheck.remainingMs / 60000);
+        await createAuditLog(req, "login_blocked", `Intento de login bloqueado para "${username}" (IP: ${req.ip}) - cuenta temporalmente bloqueada`, "user", undefined, undefined);
+        return res.status(429).json({ 
+          message: `Cuenta temporalmente bloqueada por múltiples intentos fallidos. Intente de nuevo en ${minutesLeft} minutos.` 
+        });
+      }
+
       const user = await storage.getUserByUsername(username);
       
-      if (!user || user.password !== password) {
+      if (!user) {
+        recordFailedLogin(loginKey);
         return res.status(401).json({ message: "Credenciales incorrectas" });
       }
 
-      // Update last login
+      const passwordValid = await verifyPassword(password, user.password);
+      if (!passwordValid) {
+        recordFailedLogin(loginKey);
+        await createAuditLog(req, "login_failed", `Intento de login fallido para "${username}" (IP: ${req.ip})`, "user", user.id, user.id);
+        (global as any).broadcastAdminNotification(`[SEGURIDAD] Intento de login fallido para "${user.name}" desde IP: ${req.ip}`);
+        return res.status(401).json({ message: "Credenciales incorrectas" });
+      }
+
+      clearFailedLogins(loginKey);
+
+      if (!isBcryptHash(user.password)) {
+        const hashed = await hashPassword(password);
+        await storage.updateUser(user.id, { password: hashed });
+      }
+
       await storage.updateUserLastLogin(user.id);
       
-      // Create a new user session
       const userSession = await storage.createSession({
         userId: user.id,
         loginTime: new Date(),
@@ -119,11 +219,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userAgent: req.headers['user-agent'] || "unknown"
       });
       
-      // Set user in session
       req.session.userId = user.id;
       req.session.sessionId = userSession.id;
       
-      // Enviar notificación de inicio de sesión
       const timestamp = new Date().toLocaleString();
       (global as any).broadcastAdminNotification(`[LOGIN] Usuario "${user.name}" ha iniciado sesión (${timestamp})`);
       
@@ -151,13 +249,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       
-      // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "El usuario ya existe" });
       }
       
-      // Create user
+      userData.password = await hashPassword(userData.password);
       const user = await storage.createUser(userData);
       
       // Create account for user
@@ -295,17 +392,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Monto y cuenta destino son requeridos" });
       }
       
-      if (amount <= 0) {
+      const numAmount = Number(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
         return res.status(400).json({ message: "El monto debe ser mayor que cero" });
       }
+
+      if (numAmount > MAX_SINGLE_TRANSACTION) {
+        await createAuditLog(req, "suspicious_transaction", `Intento de transferencia sospechosa: $${numAmount} (excede límite)`, "user", undefined, userId);
+        (global as any).broadcastAdminNotification(`[ALERTA] Transacción sospechosa: usuario ${userId} intentó transferir $${numAmount.toLocaleString()}`);
+        return res.status(400).json({ message: "El monto excede el límite máximo por transacción" });
+      }
+
+      if (checkTransactionFrequency(userId)) {
+        await createAuditLog(req, "suspicious_activity", `Actividad sospechosa: múltiples transacciones rápidas de usuario ${userId}`, "user", undefined, userId);
+        (global as any).broadcastAdminNotification(`[ALERTA] Actividad sospechosa: usuario ${userId} realizando transacciones muy rápido`);
+        return res.status(429).json({ message: "Demasiadas transacciones en poco tiempo. Espere un momento." });
+      }
       
-      // Get sender account
       const senderAccount = await storage.getAccountByUserId(userId);
       if (!senderAccount) {
         return res.status(404).json({ message: "Cuenta origen no encontrada" });
       }
       
-      // Check if account is blocked
       if (senderAccount.status === "BLOQUEADA" || !senderAccount.status || senderAccount.status === "PENDIENTE") {
         const message = senderAccount.status === "BLOQUEADA" 
           ? "No puede realizar transferencias. Cuenta bloqueada por retenciones pendientes."
@@ -316,16 +424,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check balance
-      if (senderAccount.balance < amount) {
+      if (senderAccount.balance < numAmount) {
         return res.status(400).json({ message: "Fondos insuficientes" });
       }
       
-      // Get recipient account
       const recipientAccount = await storage.getAccountByNumber(recipientAccountNumber);
       if (!recipientAccount) {
         return res.status(404).json({ message: "Cuenta destino no encontrada" });
       }
+
+      if (senderAccount.id === recipientAccount.id) {
+        return res.status(400).json({ message: "No puede transferir a su propia cuenta" });
+      }
+
+      recordTransaction(userId);
       
       // Create outgoing transaction
       const outgoingTransaction = await storage.createTransaction({
@@ -595,13 +707,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       
-      // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "El usuario ya existe" });
       }
       
-      // Create user
+      userData.password = await hashPassword(userData.password);
       const user = await storage.createUser(userData);
       
       // Create account for user
@@ -634,13 +745,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = parseInt(req.params.id);
       const userData = req.body;
       
-      // Validate user exists
       const existingUser = await storage.getUser(userId);
       if (!existingUser) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
       
-      // Update user
+      if (userData.password && userData.password !== existingUser.password && !isBcryptHash(userData.password)) {
+        userData.password = await hashPassword(userData.password);
+      }
+
       const updatedUser = await storage.updateUser(userId, userData);
       
       // Notification
@@ -896,42 +1009,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/statistics", isAdmin, async (req: Request, res: Response) => {
     try {
-      // Get counts
       const users = await storage.getAllUsers();
       const accounts = await storage.getAllAccounts();
       const sessions = await storage.getAllSessions();
+      const allTransactions = await storage.getAllTransactions();
+      const allCharges = await storage.getAllAccountCharges();
+      const auditLogs = await storage.getAllAuditLogs();
       
-      // Calculate statistics
       const totalUsers = users.length;
-      
       const activeAccounts = accounts.filter(a => a.status !== 'BLOQUEADA').length;
       const blockedAccounts = accounts.filter(a => a.status === 'BLOQUEADA').length;
       
-      // Filtra las sesiones que realmente están activas (sin tiempo de cierre) 
-      // y que no sean demasiado antiguas (más de 24 horas)
       const oneDayAgo = new Date();
       oneDayAgo.setDate(oneDayAgo.getDate() - 1);
       
       const activeSessions = sessions.filter(s => {
-        // Si tiene tiempo de cierre, no está activa
         if (s.logoutTime !== null) return false;
-        
-        // Si la sesión es más antigua de 24 horas, considerarla cerrada
         const loginTime = new Date(s.loginTime);
         return loginTime > oneDayAgo;
       }).length;
       
-      // Get recent users (last 5)
       const recentUsers = [...users]
         .sort((a, b) => new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime())
         .slice(0, 5);
+
+      const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const transactionsToday = allTransactions.filter(t => new Date(t.date) >= todayStart).length;
+      const volumeToday = allTransactions
+        .filter(t => new Date(t.date) >= todayStart)
+        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+
+      const pendingCharges = allCharges.filter(c => c.status === 'pending_payment').length;
+      const paidCharges = allCharges.filter(c => c.status === 'paid').length;
+
+      const securityAlerts = auditLogs
+        .filter(l => ['login_failed', 'login_blocked', 'suspicious_transaction', 'suspicious_activity'].includes(l.action))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 20)
+        .map(l => ({
+          id: l.id,
+          action: l.action,
+          details: l.details,
+          ipAddress: l.ipAddress,
+          createdAt: l.createdAt,
+        }));
       
       res.status(200).json({
         totalUsers,
         activeAccounts,
         blockedAccounts,
         activeSessions,
-        recentUsers
+        recentUsers,
+        totalBalance,
+        transactionsToday,
+        volumeToday,
+        pendingCharges,
+        paidCharges,
+        securityAlerts
       });
     } catch (error) {
       console.error("Error obteniendo estadísticas:", error);

@@ -1081,7 +1081,7 @@ const AdminPage = () => {
         {/* Dashboard */}
         <TabsContent value="dashboard">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
+            <Card data-testid="stat-total-users">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Usuarios</CardTitle>
               </CardHeader>
@@ -1090,7 +1090,7 @@ const AdminPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card data-testid="stat-active-accounts">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Cuentas Activas</CardTitle>
               </CardHeader>
@@ -1099,7 +1099,7 @@ const AdminPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card data-testid="stat-blocked-accounts">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Cuentas Bloqueadas</CardTitle>
               </CardHeader>
@@ -1108,7 +1108,7 @@ const AdminPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card data-testid="stat-active-sessions">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Sesiones Activas</CardTitle>
               </CardHeader>
@@ -1117,22 +1117,64 @@ const AdminPage = () => {
               </CardContent>
             </Card>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card data-testid="stat-total-balance">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-500">Saldo Total Sistema</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-emerald-600">${(statistics.totalBalance || 0).toLocaleString('es-CO')}</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="stat-transactions-today">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-500">Transacciones Hoy</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{statistics.transactionsToday || 0}</p>
+                <p className="text-xs text-gray-400">Vol: ${(statistics.volumeToday || 0).toLocaleString('es-CO')}</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="stat-pending-charges">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-500">Cobros Pendientes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-amber-600">{statistics.pendingCharges || 0}</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="stat-paid-charges">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-500">Cobros Pagados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-600">{statistics.paidCharges || 0}</p>
+              </CardContent>
+            </Card>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <Card>
               <CardHeader>
                 <CardTitle>Actividad Reciente</CardTitle>
               </CardHeader>
               <CardContent>
                 {notifications.length > 0 ? (
-                  <div className="space-y-3">
-                    {notifications.slice(0, 5).map((notification, index) => (
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {notifications.slice(0, 10).map((notification, index) => (
                       <div 
                         key={index}
-                        className={`p-3 rounded-md ${
+                        data-testid={`notification-${index}`}
+                        className={`p-3 rounded-md text-sm ${
                           notification.includes("[LOGIN]") ? "bg-blue-50 border-l-4 border-blue-500" :
                           notification.includes("[LOGOUT]") ? "bg-red-50 border-l-4 border-red-500" :
                           notification.includes("[REGISTRO]") ? "bg-green-50 border-l-4 border-green-500" :
+                          notification.includes("[SEGURIDAD]") || notification.includes("[ALERTA]") ? "bg-orange-50 border-l-4 border-orange-500" :
+                          notification.includes("[PAGO]") ? "bg-purple-50 border-l-4 border-purple-500" :
                           "bg-gray-50 border-l-4 border-gray-500"
                         }`}
                       >
@@ -1178,6 +1220,42 @@ const AdminPage = () => {
               </CardContent>
             </Card>
           </div>
+
+          {statistics.securityAlerts && statistics.securityAlerts.length > 0 && (
+            <Card data-testid="security-alerts">
+              <CardHeader>
+                <CardTitle className="text-red-600 flex items-center gap-2">
+                  Alertas de Seguridad
+                </CardTitle>
+                <CardDescription>Intentos de login fallidos, actividad sospechosa y bloqueos recientes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {statistics.securityAlerts.map((alert: any) => (
+                    <div key={alert.id} className="flex items-start gap-3 p-3 bg-red-50 rounded-md border-l-4 border-red-400 text-sm">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            alert.action === 'login_blocked' ? 'destructive' : 
+                            alert.action === 'suspicious_transaction' ? 'destructive' :
+                            'secondary'
+                          } className="text-xs">
+                            {alert.action === 'login_failed' ? 'Login Fallido' :
+                             alert.action === 'login_blocked' ? 'Cuenta Bloqueada' :
+                             alert.action === 'suspicious_transaction' ? 'Transacción Sospechosa' :
+                             'Actividad Sospechosa'}
+                          </Badge>
+                          <span className="text-xs text-gray-400">{alert.ipAddress}</span>
+                        </div>
+                        <p className="mt-1 text-gray-700">{alert.details}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatDateTime(alert.createdAt)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         
         {/* Users Tab */}

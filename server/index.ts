@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -6,6 +8,39 @@ import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas solicitudes, intente de nuevo más tarde" },
+  skip: (req) => !req.path.startsWith('/api'),
+}));
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiados intentos de inicio de sesión. Intente de nuevo en 15 minutos." },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+const transactionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas transacciones. Espere un momento antes de continuar." },
+});
+app.use('/api/transactions', transactionLimiter);
 
 app.post(
   '/api/stripe/webhook',
@@ -23,8 +58,8 @@ app.post(
   }
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();

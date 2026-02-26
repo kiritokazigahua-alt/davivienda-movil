@@ -17,14 +17,15 @@ Preferred communication style: Simple, everyday language.
 - **Routing**: Wouter for lightweight client-side routing (optimized route config array pattern in App.tsx)
 - **Data Fetching**: TanStack React Query with 30s staleTime and refetchOnWindowFocus enabled
 - **Mobile-First Design**: PWA-ready with responsive design, pull-to-refresh, haptic feedback, gesture navigation
+- **Idle Timeout**: Auto-logout after 25min inactivity with 5min warning dialog (IdleTimeout component)
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript for type safety across the stack
-- **Session Management**: Express-session with memory store for user authentication
+- **Session Management**: Express-session with memory store, 30min rolling timeout
 - **API Design**: RESTful API with JSON responses and proper error handling
 - **Build System**: ESBuild for production bundling, tsx for development
-- **Security**: All admin routes protected with `isAdmin` middleware
+- **Security**: Helmet headers, rate limiting, bcrypt password hashing, brute force protection
 
 ### Data Layer
 - **Database**: PostgreSQL as the primary database
@@ -49,7 +50,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Audit Logging System
 - Table: `audit_logs` in PostgreSQL
-- Tracks: login, logout, register, transfer, payment, deposit, withdrawal, card_request, card_register, card_approved, card_rejected, admin_balance_adjust, admin_status_change, admin_user_update, admin_charge_created, settings_change
+- Tracks: login, logout, login_failed, login_blocked, register, transfer, payment, deposit, withdrawal, card_request, card_register, card_approved, card_rejected, admin_balance_adjust, admin_status_change, admin_user_update, admin_charge_created, settings_change, suspicious_transaction, suspicious_activity
 - Each entry stores: userId, action, details, ipAddress, userAgent, entityType, entityId, createdAt
 - Admin viewer: "Registro de Actividad" tab with filters by action type, user, date range
 - API: `GET /api/admin/audit-logs` (admin only)
@@ -83,37 +84,30 @@ Preferred communication style: Simple, everyday language.
 - Pull-to-refresh with visual indicator
 - Haptic feedback on navigation actions
 
-### Recent Changes (February 2026)
-- Added comprehensive audit logging system (audit_logs table, all operations tracked)
-- Added "Registro de Actividad" admin tab with filterable audit log viewer
-- Fixed user registration to call real API instead of simulating
-- Fixed login response to include isAdmin field
-- Secured all admin routes with isAdmin middleware
-- Optimized App.tsx route definitions (array config pattern, reduced duplication)
-- Improved query cache: staleTime 30s, refetchOnWindowFocus enabled
-- Added pull-to-refresh gesture support in AppLayout
-- Added haptic feedback (Vibration API) on navigation buttons
-- Enhanced PWA manifest with shortcuts, categories, scope
-- Added data-testid attributes to interactive elements
-- Cleaned up dead files (Dashboard.tsx, AccountDetails.tsx, Login.tsx, use-auth.ts)
-- Fixed CURRENCIES.map crash in admin Cobros dialog (was treating object as array)
-- Fixed support phone polling spam: only polls when page visible, reduced to 2min interval
-- Fixed server error handler re-throwing causing crashes
-- Replaced Math.random() with crypto.randomInt() for secure randomness
-- Removed all console.log/error from client-side code
-- Standardized colors: bg-red-600 → bg-primary across pages
-- Fixed incomplete setUserStatus storage method to actually persist status
-- Removed duplicate navigation bar from HomePage (was conflicting with AppLayout BottomNavBar)
-- Deleted unused files: MobileNavigation.tsx, duplicate Input.tsx, temp_zip/ directory, redundant build scripts
-
 ### Security Implementation
-- **Session Security**: HTTP-only cookies with secure session management
+- **Password Hashing**: bcrypt with 10 rounds, auto-migrates plaintext passwords on login
+- **Rate Limiting**: Global (500/15min), auth (10/15min), transactions (10/min)
+- **Brute Force Protection**: Account locks after 5 failed login attempts for 15 minutes
+- **Security Headers**: Helmet middleware (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
+- **Session Security**: HTTP-only cookies, 30min rolling timeout, secure in production
+- **Idle Timeout**: Frontend auto-logout after 25min inactivity with 5min warning dialog
+- **Transaction Limits**: Max $50,000,000 per transaction, max 5 transactions per minute
+- **Suspicious Activity Detection**: Rapid transaction and large amount alerts to admin
+- **Self-Transfer Prevention**: Cannot transfer to own account
 - **Input Validation**: Zod schema validation for all API inputs
-- **Error Handling**: Centralized error handling with proper status codes
+- **Session Expiry Awareness**: Frontend auto-redirects to login on 401 responses
+- **Error Handling**: Centralized error handling, no stack traces in production
 - **Authentication Guards**: Route protection for authenticated and admin users
 - **Admin Route Protection**: All `/api/admin/*` routes protected with `isAdmin` middleware
-- **Audit Trail**: Complete audit logging of all significant operations
+- **Audit Trail**: Complete audit logging of all significant operations including security events
 - **Secure Randomness**: crypto.randomInt() used for account numbers, withdrawal codes, card numbers
+
+### Admin Dashboard Metrics
+- Total users, active/blocked accounts, active sessions
+- Total system balance, transactions today, transaction volume
+- Pending/paid charges counters
+- Security alerts feed (failed logins, blocked accounts, suspicious transactions)
+- Real-time activity feed with color-coded notifications
 
 ## External Dependencies
 
@@ -145,6 +139,11 @@ Preferred communication style: Simple, everyday language.
   - Charge gets `pending_payment` status; admin must manually mark as paid when external payment is confirmed
   - Payment method selector in admin charge form: "Link de pago (Takenos / otro)" (default), "Stripe (genera link automático)", "Sin pasarela de pago"
   - Backend validates custom URLs (must be valid https:// URLs)
+
+### Security Packages
+- **helmet**: Security headers middleware
+- **express-rate-limit**: Request rate limiting
+- **bcryptjs**: Password hashing (bcrypt algorithm)
 
 ### Optional Integrations
 - **WebSocket**: For real-time admin notifications and updates
