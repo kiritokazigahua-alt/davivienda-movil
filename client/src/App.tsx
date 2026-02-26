@@ -18,6 +18,7 @@ import AdminPage from "@/pages/admin";
 import CardsPage from "@/pages/cards";
 import PaymentSuccessPage from "@/pages/payment-success";
 import PaymentCancelPage from "@/pages/payment-cancel";
+import CheckoutPage from "@/pages/checkout";
 import NotFound from "@/pages/not-found";
 
 import AppLayout from "@/layouts/AppLayout";
@@ -51,13 +52,14 @@ function App() {
     const currentUser = useStore.getState().user;
     const isUserAdmin = currentUser?.isAdmin === 1;
     
+    const isExemptPath = location.startsWith('/checkout/') || location.startsWith('/payment/');
     if (isAuthenticated) {
       if (location === "/" || 
-          (isUserAdmin && location !== "/admin") ||
-          (!isUserAdmin && location === "/admin")) {
+          (!isExemptPath && isUserAdmin && location !== "/admin") ||
+          (!isExemptPath && !isUserAdmin && location === "/admin")) {
         setLocation(isUserAdmin ? "/admin" : "/home");
       }
-    } else if (location !== "/") {
+    } else if (location !== "/" && !isExemptPath) {
       setLocation("/");
     }
   }, [isAuthenticated, location, setLocation]);
@@ -91,6 +93,10 @@ function App() {
         <Route path="/payment/success" component={PaymentSuccessPage} />
         <Route path="/payment/cancel" component={PaymentCancelPage} />
         
+        {isAuthenticated && !isAdmin && (
+          <Route path="/checkout/:chargeId" component={CheckoutPage} />
+        )}
+
         {isAuthenticated && isAdmin && adminPaths.map((p) => (
           <Route key={p} path={p} component={AdminPage} />
         ))}

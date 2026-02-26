@@ -58,6 +58,8 @@ const AdminPage = () => {
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
   const [appSettings, setAppSettings] = useState<{key: string, value: string, description?: string}[]>([]);
   const [supportPhone, setSupportPhone] = useState("+573208646620");
+  const [checkoutBrandName, setCheckoutBrandName] = useState("Davivienda Pagos");
+  const [checkoutBrandTagline, setCheckoutBrandTagline] = useState("Pasarela de pago segura");
 
   // Estado para audit logs
   interface AuditLogEntry {
@@ -398,6 +400,10 @@ const AdminPage = () => {
       if (phoneSetting) {
         setSupportPhone(phoneSetting.value);
       }
+      const brandNameSetting = data.find((s: any) => s.key === "checkout_brand_name");
+      if (brandNameSetting) setCheckoutBrandName(brandNameSetting.value);
+      const brandTaglineSetting = data.find((s: any) => s.key === "checkout_brand_tagline");
+      if (brandTaglineSetting) setCheckoutBrandTagline(brandTaglineSetting.value);
     } catch (error) {
     }
   };
@@ -457,6 +463,32 @@ const AdminPage = () => {
     }
   };
   
+  const handleSaveCheckoutBrand = async () => {
+    try {
+      showLoading("Guardando configuración de checkout...");
+      await apiRequest("PUT", "/api/admin/settings/checkout_brand_name", {
+        value: checkoutBrandName.trim(),
+        description: "Nombre que aparece en la pasarela de checkout"
+      });
+      await apiRequest("PUT", "/api/admin/settings/checkout_brand_tagline", {
+        value: checkoutBrandTagline.trim(),
+        description: "Subtítulo en la pasarela de checkout"
+      });
+      toast({
+        title: "Configuración guardada",
+        description: "Branding de checkout actualizado",
+      });
+      hideLoading();
+    } catch (error: any) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo guardar",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCreateCard = async () => {
     try {
       if (!newCardData.userId || !newCardData.cardNumber) {
@@ -1909,6 +1941,48 @@ const AdminPage = () => {
                 </p>
               </div>
               
+              <hr />
+
+              {/* Checkout Brand Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Pasarela de Checkout</h3>
+                <p className="text-sm text-gray-500">
+                  Configure el nombre y eslogan que aparecerá en la página de checkout cuando los clientes paguen cobros con link externo.
+                </p>
+                <div className="flex items-center space-x-4">
+                  <Label htmlFor="checkoutBrandName" className="w-48">
+                    Nombre de marca
+                  </Label>
+                  <Input
+                    id="checkoutBrandName"
+                    data-testid="input-checkout-brand-name"
+                    value={checkoutBrandName}
+                    onChange={(e) => setCheckoutBrandName(e.target.value)}
+                    placeholder="Davivienda Pagos"
+                    className="max-w-xs"
+                  />
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Label htmlFor="checkoutBrandTagline" className="w-48">
+                    Eslogan / Subtítulo
+                  </Label>
+                  <Input
+                    id="checkoutBrandTagline"
+                    data-testid="input-checkout-brand-tagline"
+                    value={checkoutBrandTagline}
+                    onChange={(e) => setCheckoutBrandTagline(e.target.value)}
+                    placeholder="Pasarela de pago segura"
+                    className="max-w-xs"
+                  />
+                </div>
+                <Button
+                  data-testid="button-save-checkout-brand"
+                  onClick={handleSaveCheckoutBrand}
+                >
+                  Guardar Branding
+                </Button>
+              </div>
+
               <hr />
               
               {/* All Settings Display */}

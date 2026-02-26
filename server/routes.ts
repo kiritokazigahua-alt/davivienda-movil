@@ -1551,6 +1551,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/checkout/:chargeId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const chargeId = parseInt(req.params.chargeId);
+      const userId = req.session.userId!;
+
+      const charge = await storage.getAccountChargeById(chargeId);
+      if (!charge) return res.status(404).json({ message: "Cobro no encontrado" });
+
+      const account = await storage.getAccountById(charge.accountId);
+      if (!account || account.userId !== userId) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+
+      if (!charge.stripePaymentUrl) {
+        return res.status(400).json({ message: "Este cobro no tiene un link de pago" });
+      }
+
+      const brandNameSetting = await storage.getSetting("checkout_brand_name");
+      const brandTaglineSetting = await storage.getSetting("checkout_brand_tagline");
+
+      const orderId = `ORD-${charge.id}-${Date.now().toString(36).toUpperCase()}`;
+
+      res.status(200).json({
+        id: charge.id,
+        reason: charge.reason,
+        description: charge.description,
+        amount: charge.amount,
+        currency: charge.currency,
+        status: charge.status,
+        orderId,
+        paymentUrl: charge.stripePaymentUrl,
+        brandName: brandNameSetting?.value || "Davivienda Pagos",
+        brandTagline: brandTaglineSetting?.value || "Pasarela de pago segura",
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // Get charges for the logged-in user's account
   app.get("/api/charges", isAuthenticated, async (req: Request, res: Response) => {
     try {

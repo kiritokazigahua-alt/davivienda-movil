@@ -809,6 +809,8 @@ export class DatabaseStorage implements IStorage {
     
     // Create default app settings
     await this.setSetting("support_phone", "+573208646620", "Número de WhatsApp de soporte al cliente", adminUser.id);
+    await this.setSetting("checkout_brand_name", "Davivienda Pagos", "Nombre que aparece en la pasarela de checkout", adminUser.id);
+    await this.setSetting("checkout_brand_tagline", "Pasarela de pago segura", "Subtítulo en la pasarela de checkout", adminUser.id);
     
     console.log("Default data initialized successfully");
   }

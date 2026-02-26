@@ -139,6 +139,12 @@ Preferred communication style: Simple, everyday language.
   - Charge gets `pending_payment` status; admin must manually mark as paid when external payment is confirmed
   - Payment method selector in admin charge form: "Link de pago (Takenos / otro)" (default), "Stripe (genera link automático)", "Sin pasarela de pago"
   - Backend validates custom URLs (must be valid https:// URLs)
+- **Branded Checkout Page**: Intermediary page (`/checkout/:chargeId`) between the app and external payment links
+  - Hides Takenos/external link owner's real name behind custom branding
+  - Shows order ID, charge details, amount, and branded header
+  - Admin configures brand name and tagline via Settings tab (`checkout_brand_name`, `checkout_brand_tagline`)
+  - User clicks "Pagar Ahora" → branded checkout page → redirect to external payment gateway
+  - API endpoint: `GET /api/checkout/:chargeId` (authenticated, owner-only access)
 
 ### Security Packages
 - **helmet**: Security headers middleware
