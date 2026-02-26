@@ -143,9 +143,11 @@ Preferred communication style: Simple, everyday language.
 - **Branded Checkout Page**: Intermediary page (`/checkout/:chargeId`) between the app and external payment links
   - Hides Takenos/external link owner's real name behind custom branding
   - Shows order ID, charge details, amount, and branded header
-  - Admin configures brand name and tagline via Settings tab (`checkout_brand_name`, `checkout_brand_tagline`)
-  - User clicks "Pagar Ahora" → branded checkout page → redirect to external payment gateway
-  - API endpoint: `GET /api/checkout/:chargeId` (authenticated, owner-only access)
+  - Admin configures brand name, tagline, and owner name to hide via Settings tab (`checkout_brand_name`, `checkout_brand_tagline`, `checkout_owner_name`)
+  - User clicks "Pagar Ahora" → embedded payment view with server-side proxy that strips owner name
+  - Server-side proxy (`/api/payment-proxy/:chargeId`): fetches external payment HTML, replaces owner name with brand name, serves modified content in iframe
+  - Fallback: if iframe fails to load, shows branded fallback with external link option
+  - API endpoints: `GET /api/checkout/:chargeId`, `GET /api/payment-proxy/:chargeId` (authenticated, owner-only access)
 
 ### Security Packages
 - **helmet**: Security headers middleware

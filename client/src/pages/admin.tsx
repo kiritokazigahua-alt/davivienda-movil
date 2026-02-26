@@ -60,6 +60,7 @@ const AdminPage = () => {
   const [supportPhone, setSupportPhone] = useState("+573208646620");
   const [checkoutBrandName, setCheckoutBrandName] = useState("Davivienda Pagos");
   const [checkoutBrandTagline, setCheckoutBrandTagline] = useState("Pasarela de pago segura");
+  const [checkoutOwnerName, setCheckoutOwnerName] = useState("");
 
   // Estado para audit logs
   interface AuditLogEntry {
@@ -405,6 +406,8 @@ const AdminPage = () => {
       if (brandNameSetting) setCheckoutBrandName(brandNameSetting.value);
       const brandTaglineSetting = data.find((s: any) => s.key === "checkout_brand_tagline");
       if (brandTaglineSetting) setCheckoutBrandTagline(brandTaglineSetting.value);
+      const ownerNameSetting = data.find((s: any) => s.key === "checkout_owner_name");
+      if (ownerNameSetting) setCheckoutOwnerName(ownerNameSetting.value);
     } catch (error) {
     }
   };
@@ -475,6 +478,12 @@ const AdminPage = () => {
         value: checkoutBrandTagline.trim(),
         description: "Subtítulo en la pasarela de checkout"
       });
+      if (checkoutOwnerName.trim()) {
+        await apiRequest("PUT", "/api/admin/settings/checkout_owner_name", {
+          value: checkoutOwnerName.trim(),
+          description: "Nombre del propietario a ocultar en la pasarela externa"
+        });
+      }
       toast({
         title: "Configuración guardada",
         description: "Branding de checkout actualizado",
@@ -1982,6 +1991,22 @@ const AdminPage = () => {
                     className="max-w-xs"
                   />
                 </div>
+                <div className="flex items-center space-x-4">
+                  <Label htmlFor="checkoutOwnerName" className="w-48">
+                    Nombre a ocultar
+                  </Label>
+                  <Input
+                    id="checkoutOwnerName"
+                    data-testid="input-checkout-owner-name"
+                    value={checkoutOwnerName}
+                    onChange={(e) => setCheckoutOwnerName(e.target.value)}
+                    placeholder="Nombre del propietario de la pasarela"
+                    className="max-w-xs"
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  El nombre del propietario sera reemplazado por el nombre de marca en la pasarela de pago embebida.
+                </p>
                 <Button
                   data-testid="button-save-checkout-brand"
                   onClick={handleSaveCheckoutBrand}

