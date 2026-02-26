@@ -10,8 +10,25 @@ import { getStripeSync } from "./stripeClient";
 const app = express();
 
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.stripe.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://api.stripe.com", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://js.stripe.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+  },
 }));
 
 app.use(rateLimit({
@@ -60,6 +77,26 @@ app.post(
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.path.startsWith('/api') && !req.path.startsWith('/api/stripe/webhook')) {
+    const origin = req.get('origin');
+    const referer = req.get('referer');
+    const sourceUrl = origin || (referer ? referer : null);
+    const expectedHost = req.get('x-forwarded-host') || req.get('host');
+    if (sourceUrl && expectedHost) {
+      try {
+        const sourceHost = new URL(sourceUrl).host;
+        if (sourceHost !== expectedHost) {
+          return res.status(403).json({ message: 'Solicitud rechazada por política de seguridad' });
+        }
+      } catch {
+        return res.status(403).json({ message: 'Origen inválido' });
+      }
+    }
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

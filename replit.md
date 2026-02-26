@@ -88,8 +88,9 @@ Preferred communication style: Simple, everyday language.
 - **Password Hashing**: bcrypt with 10 rounds, auto-migrates plaintext passwords on login
 - **Rate Limiting**: Global (500/15min), auth (10/15min), transactions (10/min)
 - **Brute Force Protection**: Account locks after 5 failed login attempts for 15 minutes
-- **Security Headers**: Helmet middleware (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
-- **Session Security**: HTTP-only cookies, 30min rolling timeout, secure in production
+- **Security Headers**: Helmet middleware with CSP enabled (HSTS, X-Content-Type-Options, X-Frame-Options, CSP, etc.)
+- **Origin Validation**: Server-side origin/referer check on state-changing requests (POST/PUT/PATCH/DELETE) with proxy header support
+- **Session Security**: HTTP-only cookies, 30min rolling timeout, secure in production, PostgreSQL-backed sessions in production (connect-pg-simple)
 - **Idle Timeout**: Frontend auto-logout after 25min inactivity with 5min warning dialog
 - **Transaction Limits**: Max $50,000,000 per transaction, max 5 transactions per minute
 - **Suspicious Activity Detection**: Rapid transaction and large amount alerts to admin
@@ -113,7 +114,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Infrastructure
 - **Database**: PostgreSQL (Neon serverless)
-- **Session Store**: In-memory session storage (production-ready alternatives available)
+- **Session Store**: PostgreSQL (connect-pg-simple) in production, in-memory for development
 
 ### Third-party Services
 - **QR Code Generation**: QR Server API for generating QR codes

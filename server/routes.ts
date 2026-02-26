@@ -10,6 +10,7 @@ import {
   insertAccountChargeSchema
 } from "@shared/schema";
 import memorystore from 'memorystore';
+import connectPgSimple from 'connect-pg-simple';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { randomInt } from 'crypto';
@@ -109,20 +110,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.set('trust proxy', 1);
   
+  const isProduction = process.env.NODE_ENV === 'production';
+  const sessionSecret = process.env.SESSION_SECRET || (isProduction ? undefined : 'davivienda-dev-secret');
+  if (!sessionSecret) {
+    throw new Error('SESSION_SECRET environment variable is required in production');
+  }
+
+  let sessionStore: session.Store;
+  if (isProduction) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL is required in production for session persistence');
+    }
+    const PgStore = connectPgSimple(session);
+    sessionStore = new PgStore({
+      conString: process.env.DATABASE_URL,
+      tableName: 'user_web_sessions',
+      createTableIfMissing: true,
+      pruneSessionInterval: 60 * 15,
+    });
+  } else {
+    sessionStore = new MemoryStore({
+      checkPeriod: 3600000
+    });
+  }
+
   app.use(session({
     cookie: { 
       maxAge: 30 * 60 * 1000,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       httpOnly: true,
       sameSite: 'lax'
     },
-    store: new MemoryStore({
-      checkPeriod: 3600000
-    }),
+    store: sessionStore,
     rolling: true,
     resave: false,
     saveUninitialized: false,
-    secret: process.env.SESSION_SECRET || 'davivienda-secret'
+    secret: sessionSecret
   }));
 
   // Check auth middleware
