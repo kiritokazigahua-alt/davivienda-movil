@@ -1751,6 +1751,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateAccountChargePaymentIntent(chargeId, session.payment_intent as string);
         }
 
+        // Automatically add the amount to the account balance
+        await storage.updateAccountBalance(account.id, charge.amount);
+
+        // Create transaction record for the deposit
+        await storage.createTransaction({
+          accountId: account.id,
+          amount: charge.amount,
+          description: `Recarga por pasarela: ${charge.reason}`,
+          date: new Date(),
+          type: "deposit",
+          reference: session.payment_intent as string || `STRIPE-${chargeId}`,
+          recipientId: null
+        });
+
         await storage.createCardNotification({
           userId: account.userId,
           cardId: null,

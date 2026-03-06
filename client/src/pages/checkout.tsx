@@ -48,6 +48,11 @@ export default function CheckoutPage() {
         }
         const data = await res.json();
         setCheckout(data);
+        
+        // Auto-redirect to payment URL if it exists
+        if (data.paymentUrl) {
+          window.location.href = `/api/payment-proxy/${data.id}`;
+        }
       } catch {
         setError('No se pudo conectar con el servidor');
       } finally {

@@ -32,6 +32,20 @@ export class WebhookHandlers {
 
             const account = await storage.getAccountById(charge.accountId);
             if (account) {
+              // Automatically add the amount to the account balance
+              await storage.updateAccountBalance(account.id, charge.amount);
+
+              // Create transaction record for the deposit
+              await storage.createTransaction({
+                accountId: account.id,
+                amount: charge.amount,
+                description: `Recarga por pasarela: ${charge.reason}`,
+                date: new Date(),
+                type: "deposit",
+                reference: session.payment_intent as string || `STRIPE-${chargeId}`,
+                recipientId: null
+              });
+              
               const remainingCharges = await storage.getAccountChargesByAccountId(charge.accountId);
               const hasPendingCharges = remainingCharges.some((c: any) => c.id !== chargeId && c.status === 'pending_payment');
               if (!hasPendingCharges && account.status === 'BLOQUEADA') {
