@@ -185,6 +185,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Admin password reset
+  app.post("/api/admin/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { username, secretCode, newPassword } = req.body;
+      
+      // Verification of a "secret reset code" that only the owner would know
+      // In a real app, this would be an environment variable or a more secure method
+      const RESET_SECRET = process.env.ADMIN_RESET_SECRET || "davivienda-recovery-2025";
+      
+      if (secretCode !== RESET_SECRET) {
+        return res.status(403).json({ message: "Código de recuperación inválido" });
+      }
+
+      const user = await storage.getUserByUsername(username);
+      if (!user || user.isAdmin !== 1) {
+        return res.status(404).json({ message: "Administrador no encontrado" });
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      
+      await createAuditLog(req, "admin_password_reset", `Contraseña de administrador "${username}" restaurada vía código secreto`, "user", user.id, user.id);
+      
+      return res.status(200).json({ message: "Contraseña actualizada exitosamente" });
+    } catch (error) {
+      console.error("Error resetting admin password:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   app.get("/api/auth/session-status", (req: Request, res: Response) => {
     if (req.session && req.session.userId) {
       return res.status(200).json({ active: true, sessionTimeout: 30 * 60 * 1000 });
