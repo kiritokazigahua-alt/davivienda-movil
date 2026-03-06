@@ -1463,8 +1463,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               quantity: 1,
             }],
             mode: 'payment',
-            success_url: `${baseUrl}/payment/success?charge_id=${charge.id}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${baseUrl}/payment/cancel?charge_id=${charge.id}`,
+            success_url: `${baseUrl}/checkout/${charge.id}`, // Return to checkout for auto-verification
+            cancel_url: `${baseUrl}/checkout/${charge.id}`,
             metadata: {
               charge_id: String(charge.id),
               account_id: String(accountId),

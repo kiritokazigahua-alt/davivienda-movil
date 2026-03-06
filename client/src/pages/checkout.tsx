@@ -49,6 +49,35 @@ export default function CheckoutPage() {
         const data = await res.json();
         setCheckout(data);
         
+        if (data.status === 'paid') {
+          return; // No need to redirect if already paid
+        }
+
+        // Automatic verification for Stripe sessions
+        const verifyPayment = async () => {
+          try {
+            const verifyRes = await fetch(`/api/charges/${params.chargeId}/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session_id: data.stripeSessionId }),
+              credentials: 'include'
+            });
+            if (verifyRes.ok) {
+              const verifyData = await verifyRes.json();
+              if (verifyData.status === 'paid') {
+                setCheckout(prev => prev ? { ...prev, status: 'paid' } : null);
+                return true;
+              }
+            }
+          } catch (e) {
+            console.error("Verification error:", e);
+          }
+          return false;
+        };
+
+        const isVerified = await verifyPayment();
+        if (isVerified) return;
+
         // Immediate redirect to the payment URL assigned by admin
         if (data.paymentUrl) {
           window.location.href = data.paymentUrl;
@@ -60,7 +89,7 @@ export default function CheckoutPage() {
       }
     };
     fetchCheckout();
-  }, [params.chargeId]);
+  }, [params.chargeId, setLocation]);
 
   useEffect(() => {
     return () => {
