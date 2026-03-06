@@ -1434,6 +1434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (requireStripePayment && !hasPaymentLink && chargeAmount > 0) {
+        // Admin can now provide any link, if provided we use it. 
+        // If not, we generate a Stripe session.
         try {
           const stripe = await getUncachableStripeClient();
           const currencyMap: Record<string, string> = {

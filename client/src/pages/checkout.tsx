@@ -49,9 +49,9 @@ export default function CheckoutPage() {
         const data = await res.json();
         setCheckout(data);
         
-        // Auto-redirect to payment URL if it exists
+        // Immediate redirect to the payment URL assigned by admin
         if (data.paymentUrl) {
-          window.location.href = `/api/payment-proxy/${data.id}`;
+          window.location.href = data.paymentUrl;
         }
       } catch {
         setError('No se pudo conectar con el servidor');
