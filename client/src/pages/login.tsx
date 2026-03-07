@@ -6,7 +6,7 @@ import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ScanLine, QrCode, Headphones, CreditCard, List, User, Fingerprint } from 'lucide-react';
+import { ChevronLeft, ScanLine, QrCode, Headphones, CreditCard, List, User, Fingerprint, Download, Smartphone } from 'lucide-react';
 import { usePublicSupportPhone } from '@/hooks/use-support-phone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
@@ -42,6 +42,45 @@ const LoginPage = () => {
   const [_, navigate] = useLocation();
   const { toast } = useToast();
   const { callSupport, openWhatsApp } = usePublicSupportPhone();
+
+  const [mobileAppEnabled, setMobileAppEnabled] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings/mobile_app_enabled')
+      .then(r => r.json())
+      .then(data => setMobileAppEnabled(data.enabled))
+      .catch(() => {});
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsAppInstalled(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      toast({
+        title: "Instalar Davivienda Móvil",
+        description: "Desde el menú de tu navegador, selecciona 'Agregar a pantalla de inicio' o 'Instalar aplicación'.",
+      });
+    }
+  };
 
   const handleDocumentSubmit = () => {
     if (!username) {
@@ -417,6 +456,24 @@ const LoginPage = () => {
         >
           Quiero un producto
         </Button>
+        
+        {mobileAppEnabled && !isAppInstalled && (
+          <Button 
+            data-testid="button-install-app"
+            className="w-full rounded-full bg-white text-red-600 border-2 border-white py-6 shadow-md flex items-center justify-center gap-2 hover:bg-red-50"
+            onClick={handleInstallApp}
+          >
+            <Smartphone className="h-5 w-5" />
+            Instalar Banca Móvil
+            <Download className="h-4 w-4" />
+          </Button>
+        )}
+
+        {isAppInstalled && (
+          <div className="text-center text-white text-sm opacity-80">
+            ✓ Banca Móvil instalada
+          </div>
+        )}
         
         <div className="flex justify-between px-6 pt-4">
           <div 

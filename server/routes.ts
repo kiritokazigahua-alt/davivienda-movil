@@ -1855,6 +1855,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/settings/mobile_app_enabled", async (_req: Request, res: Response) => {
+    try {
+      const setting = await storage.getSetting("mobile_app_enabled");
+      res.status(200).json({ enabled: setting?.value === "true" });
+    } catch (error) {
+      res.status(200).json({ enabled: false });
+    }
+  });
+
   // AUDIT LOG ROUTES (Admin)
   app.get("/api/admin/audit-logs", isAdmin, async (req: Request, res: Response) => {
     try {

@@ -61,6 +61,7 @@ const AdminPage = () => {
   const [checkoutBrandName, setCheckoutBrandName] = useState("Davivienda Pagos");
   const [checkoutBrandTagline, setCheckoutBrandTagline] = useState("Pasarela de pago segura");
   const [checkoutOwnerName, setCheckoutOwnerName] = useState("");
+  const [mobileAppEnabled, setMobileAppEnabled] = useState(false);
 
   // Estado para audit logs
   interface AuditLogEntry {
@@ -408,7 +409,34 @@ const AdminPage = () => {
       if (brandTaglineSetting) setCheckoutBrandTagline(brandTaglineSetting.value);
       const ownerNameSetting = data.find((s: any) => s.key === "checkout_owner_name");
       if (ownerNameSetting) setCheckoutOwnerName(ownerNameSetting.value);
+      const mobileAppSetting = data.find((s: any) => s.key === "mobile_app_enabled");
+      setMobileAppEnabled(mobileAppSetting?.value === "true");
     } catch (error) {
+    }
+  };
+
+  const handleToggleMobileApp = async () => {
+    try {
+      const newValue = !mobileAppEnabled;
+      showLoading("Guardando configuración...");
+      await apiRequest("PUT", "/api/admin/settings/mobile_app_enabled", {
+        value: newValue ? "true" : "false",
+        description: "Activar/desactivar botón de instalación de Banca Móvil"
+      });
+      setMobileAppEnabled(newValue);
+      hideLoading();
+      toast({
+        title: "Configuración guardada",
+        description: `Botón de instalación ${newValue ? "activado" : "desactivado"}`,
+      });
+      fetchSettings();
+    } catch (error: any) {
+      hideLoading();
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo guardar la configuración",
+        variant: "destructive",
+      });
     }
   };
 
@@ -2013,6 +2041,30 @@ const AdminPage = () => {
                 >
                   Guardar Branding
                 </Button>
+              </div>
+
+              <hr />
+
+              {/* Mobile App Install Toggle */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Banca Móvil (PWA)</h3>
+                <p className="text-sm text-gray-500">
+                  Controle si los usuarios pueden ver el botón de instalación de la Banca Móvil en la pantalla de inicio de sesión.
+                </p>
+                <div className="flex items-center space-x-4">
+                  <Button
+                    data-testid="button-toggle-mobile-app"
+                    onClick={handleToggleMobileApp}
+                    className={mobileAppEnabled ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-400 hover:bg-gray-500 text-white"}
+                  >
+                    {mobileAppEnabled ? "✓ Activado" : "✗ Desactivado"}
+                  </Button>
+                  <span className="text-sm text-gray-600">
+                    {mobileAppEnabled 
+                      ? "El botón de instalación está visible para los usuarios" 
+                      : "El botón de instalación está oculto"}
+                  </span>
+                </div>
               </div>
 
               <hr />

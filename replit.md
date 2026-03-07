@@ -75,14 +75,23 @@ Preferred communication style: Simple, everyday language.
 - USD uses en-US locale (comma thousands), EUR uses de-DE locale (dot thousands), COP uses es-CO locale
 - USD/EUR/GBP/BRL show 2 decimal places; COP shows 0 decimals
 
-### PWA Mobile App
+### PWA Mobile App (Banca Móvil)
 - Manifest.json configured for standalone display with shortcuts (Transferencias, Pagos, QR)
+- Service worker (`client/public/sw.js`) for PWA install capability and basic offline caching
+- Service worker registered in `client/index.html` at page load
+- PWA icons: `icon-192x192.png` and `icon-512x512.png` in `client/public/`
 - Apple mobile web app capable with viewport-fit=cover
 - Hidden scrollbars for native app feel
 - Safe area insets for notched devices
 - Portrait orientation lock
 - Pull-to-refresh with visual indicator
 - Haptic feedback on navigation actions
+- **Install Button**: Shown on login welcome screen only when admin activates it
+  - Admin toggle in Settings tab → "Banca Móvil (PWA)" section
+  - Setting stored as `mobile_app_enabled` in `app_settings` table
+  - Public endpoint: `GET /api/settings/mobile_app_enabled` returns `{enabled: boolean}`
+  - Uses browser `beforeinstallprompt` event for native install prompt
+  - Falls back to instructions if prompt not available
 
 ### Security Implementation
 - **Password Hashing**: bcrypt with 10 rounds, auto-migrates plaintext passwords on login
