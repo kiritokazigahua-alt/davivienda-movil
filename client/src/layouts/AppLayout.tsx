@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
+import Chatbot from '@/components/Chatbot';
 import { useStore } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { Home, Send, Wallet, CreditCard, User, Menu, Plus, ArrowDown, QrCode, Banknote } from 'lucide-react';
@@ -265,6 +266,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       </GestureDetector>
       
       <BottomNavBar />
+      
+      <Chatbot />
       
       <LoadingOverlay />
     </div>
