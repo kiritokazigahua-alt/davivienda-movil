@@ -426,7 +426,7 @@ const LoginPage = () => {
   );
 
   const welcomeScreen = (
-    <div className="fixed inset-0 flex flex-col bg-red-600 overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="min-h-screen flex flex-col bg-red-600" style={{ minHeight: '100dvh' }}>
       {isLoading && <LoadingOverlay text="Iniciando sesión..." />}
       
       <div className="pt-6 pb-1 flex justify-center shrink-0">
@@ -615,7 +615,7 @@ const LoginPage = () => {
   );
 
   const loginScreen = (
-    <div className="fixed inset-0 flex flex-col overflow-hidden">
+    <div className="min-h-screen flex flex-col" style={{ minHeight: '100dvh' }}>
       {isLoading && <LoadingOverlay text="Iniciando sesión..." />}
       
       <div className="bg-red-600 h-14 flex items-center px-4 shrink-0">
