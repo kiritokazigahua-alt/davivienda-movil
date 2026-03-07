@@ -739,17 +739,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ADMIN PANEL ROUTES
-  app.get("/admin", (req: Request, res: Response) => {
-    const adminPath = path.join(process.cwd(), 'client', 'public', 'admin.html');
-    res.sendFile(adminPath);
-  });
-
-  app.get("/admin-panel", (req: Request, res: Response) => {
-    const adminPanelPath = path.join(process.cwd(), 'client', 'public', 'admin-panel.html');
-    res.sendFile(adminPanelPath);
-  });
-
   // API ADMIN ROUTES
   app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
