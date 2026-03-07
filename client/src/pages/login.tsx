@@ -412,36 +412,36 @@ const LoginPage = () => {
   );
 
   const welcomeScreen = (
-    <div className="fixed inset-0 flex flex-col bg-red-600 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-red-600 overflow-hidden" style={{ height: '100dvh' }}>
       {isLoading && <LoadingOverlay text="Iniciando sesión..." />}
       
-      <div className="pt-8 pb-2 flex justify-center shrink-0">
+      <div className="pt-6 pb-1 flex justify-center shrink-0">
         <DaviviendaLogo />
       </div>
       
-      <div className="text-white px-6 mb-2 shrink-0">
-        <h1 className="text-2xl font-bold mb-1">Nos alegra tenerle aquí</h1>
-        <p className="text-base">En esta app puede hacerlo todo sin salir de casa.</p>
-        <p className="text-base">¿Ya es nuestro cliente?</p>
+      <div className="text-white px-5 shrink-0">
+        <h1 className="text-xl font-bold leading-tight">Nos alegra tenerle aquí</h1>
+        <p className="text-sm leading-tight mt-1">En esta app puede hacerlo todo sin salir de casa.</p>
+        <p className="text-sm leading-tight">¿Ya es nuestro cliente?</p>
       </div>
       
-      <div className="flex-1 relative min-h-0 overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center">
+      <div className="flex-1 relative min-h-0 my-1">
+        <div className="absolute inset-0 flex items-center justify-center pb-16">
           <img
             src="/welcome-woman.jpg"
             alt="Mujer feliz con smartphone"
-            className="w-56 h-64 object-cover rounded-lg"
+            className="w-48 h-52 object-cover rounded-lg shadow-lg"
           />
         </div>
         
-        <div className="absolute bottom-0 w-full h-24">
+        <div className="absolute bottom-0 w-full h-16">
           <div className="bg-white h-full rounded-t-[50%]"></div>
         </div>
       </div>
       
-      <div className="w-full px-4 pb-4 space-y-2 relative z-10 bg-white shrink-0">
+      <div className="w-full px-4 pb-3 space-y-2 relative z-10 bg-white shrink-0">
         <Button 
-          className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-5 border-2 border-white shadow-md"
+          className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white h-11 border-2 border-white shadow-md text-sm"
           onClick={() => setShowWelcome(false)}
         >
           Soy cliente
@@ -449,7 +449,7 @@ const LoginPage = () => {
         
         <Button 
           variant="outline" 
-          className="w-full rounded-full bg-white text-black border border-gray-300 py-5 shadow-md"
+          className="w-full rounded-full bg-white text-black border border-gray-300 h-11 shadow-md text-sm"
           onClick={() => setShowRegisterDialog(true)}
         >
           Quiero un producto
@@ -458,62 +458,62 @@ const LoginPage = () => {
         {mobileAppEnabled && !isAppInstalled && (
           <Button 
             data-testid="button-install-app"
-            className="w-full rounded-full bg-red-50 text-red-600 border border-red-200 py-5 shadow-md flex items-center justify-center gap-2 hover:bg-red-100"
+            className="w-full rounded-full bg-red-50 text-red-600 border border-red-200 h-11 shadow-md flex items-center justify-center gap-2 hover:bg-red-100 text-sm"
             onClick={handleInstallApp}
           >
-            <Smartphone className="h-5 w-5" />
+            <Smartphone className="h-4 w-4" />
             Instalar Banca Móvil
-            <Download className="h-4 w-4" />
+            <Download className="h-3 w-3" />
           </Button>
         )}
 
         {isAppInstalled && (
-          <div className="text-center text-green-600 text-sm font-medium">
+          <div className="text-center text-green-600 text-xs font-medium">
             Banca Móvil instalada
           </div>
         )}
         
-        <div className="flex justify-around px-2 pt-2">
+        <div className="flex justify-around px-2">
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => window.open("https://www.pse.com.co/persona", "_blank")}
           >
-            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-gray-700" />
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <CreditCard className="h-4 w-4 text-gray-700" />
             </div>
-            <span className="text-[10px] text-gray-600 mt-1">Pagos PSE</span>
+            <span className="text-[10px] text-gray-600 mt-0.5">Pagos PSE</span>
           </div>
           
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => navigate("/payments")}
           >
-            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22M12 2C9.49872 4.73835 8.07725 8.29203 8 12C8.07725 15.708 9.49872 19.2616 12 22M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22M2.50002 9H21.5M2.5 15H21.5" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-[10px] text-gray-600 mt-1">Le interesa</span>
+            <span className="text-[10px] text-gray-600 mt-0.5">Le interesa</span>
           </div>
           
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => navigate("/profile")}
           >
-            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
-              <List className="h-5 w-5 text-gray-700" />
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <List className="h-4 w-4 text-gray-700" />
             </div>
-            <span className="text-[10px] text-gray-600 mt-1">Más</span>
+            <span className="text-[10px] text-gray-600 mt-0.5">Más</span>
           </div>
         </div>
       </div>
       
-      <div className="fixed bottom-4 right-4 z-20">
+      <div className="fixed bottom-3 right-3 z-20">
         <button 
-          className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-2 border-white"
+          className="w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-2 border-white"
           onClick={callSupport}
         >
-          <Headphones size={24} />
+          <Headphones size={20} />
         </button>
       </div>
       
