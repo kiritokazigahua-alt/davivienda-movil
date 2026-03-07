@@ -1,9 +1,11 @@
-const CACHE_NAME = 'davivienda-v1';
+const CACHE_NAME = 'davivienda-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',
   '/icon-192x192.png',
-  '/icon-512x512.png'
+  '/icon-512x512.png',
+  '/apple-touch-icon.png',
+  '/favicon.png'
 ];
 
 self.addEventListener('install', (event) => {

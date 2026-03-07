@@ -86,8 +86,11 @@ const LoginPage = () => {
       const result = await deferredPrompt.userChoice;
       if (result.outcome === 'accepted') {
         setIsAppInstalled(true);
+        toast({ title: "Instalando...", description: "Davivienda Móvil se está instalando en su dispositivo" });
       }
       setDeferredPrompt(null);
+    } else if (isIOS) {
+      setShowInstallDialog(true);
     } else {
       setShowInstallDialog(true);
     }
@@ -538,7 +541,7 @@ const LoginPage = () => {
           
           <div className="py-4 space-y-4">
             <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
-              <img src="/icon-192x192.png" alt="Davivienda" className="w-12 h-12 rounded-xl" />
+              <img src="/icon-192x192.png" alt="Davivienda" className="w-14 h-14 rounded-2xl shadow-md" />
               <div>
                 <p className="font-semibold text-gray-900">Davivienda Móvil</p>
                 <p className="text-xs text-gray-500">Banca en línea segura</p>

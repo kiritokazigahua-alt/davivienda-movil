@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use(session({
     cookie: { 
-      maxAge: 30 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       secure: isProduction,
       httpOnly: true,
       sameSite: 'lax'
@@ -222,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/session-status", (req: Request, res: Response) => {
     if (req.session && req.session.userId) {
-      return res.status(200).json({ active: true, sessionTimeout: 30 * 60 * 1000 });
+      return res.status(200).json({ active: true, sessionTimeout: 7 * 24 * 60 * 60 * 1000 });
     }
     return res.status(200).json({ active: false });
   });
