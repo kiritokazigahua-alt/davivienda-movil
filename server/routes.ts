@@ -820,12 +820,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const accounts = await storage.getAllAccounts();
       
-      // Get user information for each account
       const accountsWithUserInfo = await Promise.all(accounts.map(async (account) => {
         const user = await storage.getUser(account.userId);
         return {
           ...account,
-          userName: user ? user.name : null
+          userName: user ? user.name : null,
+          userEmail: user ? user.email : null,
+          userDocument: user ? user.document : null,
+          userPhone: user ? user.phone : null,
+          userUsername: user ? user.username : null
         };
       }));
       
@@ -1857,6 +1860,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ enabled: setting?.value === "true" });
     } catch (error) {
       res.status(200).json({ enabled: false });
+    }
+  });
+
+  app.get("/api/settings/features/all", async (_req: Request, res: Response) => {
+    try {
+      const allSettings = await storage.getAllSettings();
+      const features: Record<string, boolean> = {};
+      for (const setting of allSettings) {
+        if (setting.key.startsWith("feature_")) {
+          features[setting.key] = setting.value === "true";
+        }
+      }
+      res.status(200).json(features);
+    } catch (error) {
+      res.status(200).json({});
+    }
+  });
+
+  app.get("/api/settings/:key", async (req: Request, res: Response) => {
+    try {
+      const { key } = req.params;
+      const allowedKeys = ["support_phone", "checkout_brand_name", "checkout_brand_tagline", "checkout_owner_name"];
+      if (!key.startsWith("feature_") && !allowedKeys.includes(key)) {
+        return res.status(403).json({ message: "Acceso no permitido" });
+      }
+      const setting = await storage.getSetting(key);
+      if (key.startsWith("feature_")) {
+        res.status(200).json({ key, value: setting?.value || "false", enabled: setting?.value === "true" });
+      } else {
+        res.status(200).json(setting || { key, value: "" });
+      }
+    } catch (error) {
+      res.status(200).json({ value: "false", enabled: false });
     }
   });
 

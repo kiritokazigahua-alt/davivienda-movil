@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript for type safety across the stack
-- **Session Management**: Express-session with memory store, 30min rolling timeout
+- **Session Management**: Express-session with PostgreSQL store in production (connect-pg-simple), 7-day cookie timeout
 - **API Design**: RESTful API with JSON responses and proper error handling
 - **Build System**: ESBuild for production bundling, tsx for development
 - **Security**: Helmet headers, rate limiting, bcrypt password hashing, brute force protection
@@ -42,7 +42,8 @@ Preferred communication style: Simple, everyday language.
 - **QR Code**: QR-based money transfers and payments
 - **Mobile Recharges**: Cellular and transport card top-ups
 - **Card Management**: Users can request new cards or register existing cards (pending admin approval)
-- **Admin Panel**: Administrative interface with tabs: Dashboard, Usuarios, Cuentas, Tarjetas, Transacciones, Sesiones, Notificaciones, Alertas, Cobros & Accesos, Registro de Actividad, Configuración
+- **Admin Panel**: Administrative interface with tabs: Dashboard, Usuarios, Cuentas, Tarjetas, Transacciones, Sesiones, Notificaciones, Alertas, Cobros & Accesos, Registro de Actividad, Configuración. Includes: Copy Template button per account, Download Clients CSV, 10 toggleable features (certificates, transfer limits, messages, identity verification, promotions, insurance, loyalty points, statements, scheduled payments, priority support)
+- **Chatbot**: Built-in FAQ chatbot for banking support (floating button in AppLayout, full-screen chat)
 - **Comprehensive Audit Logging**: All user and admin operations are tracked in the audit_logs table
 - **Real-time Updates**: WebSocket integration for live notifications
 - **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page

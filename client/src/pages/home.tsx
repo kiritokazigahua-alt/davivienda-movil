@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard } from 'lucide-react';
+import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, Shield, Star, Clock, BadgeCheck, Gift, Award, FileDown, CalendarClock, Headphones } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatCurrencyWithCode } from '@/lib/utils';
 import { CurrencyCode } from '@/types';
@@ -14,6 +14,7 @@ const HomePage = () => {
   const [showBalance, setShowBalance] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pendingCharges, setPendingCharges] = useState<any[]>([]);
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const [_, navigate] = useLocation();
   const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
@@ -29,6 +30,13 @@ const HomePage = () => {
             const charges = await res.json();
             const pending = charges.filter((c: any) => c.status === 'pending_payment');
             setPendingCharges(pending);
+          }
+        } catch {}
+        try {
+          const featRes = await fetch('/api/settings/features/all');
+          if (featRes.ok) {
+            const featData = await featRes.json();
+            setFeatures(featData);
           }
         } catch {}
       } catch (error) {
@@ -319,6 +327,157 @@ const HomePage = () => {
               </div>
             </div>
           </section>
+
+          {/* Features habilitadas por admin */}
+          {features.feature_identity_verification && (
+            <section className="mt-4 px-4" data-testid="feature-identity-verification">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+                <BadgeCheck className="text-green-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-green-800 text-sm">Cuenta Verificada</p>
+                  <p className="text-xs text-green-600">Su identidad ha sido verificada por Davivienda</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_promotions && (
+            <section className="mt-4 px-4" data-testid="feature-promotions">
+              <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-lg p-4 text-white shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Gift size={20} />
+                  <h3 className="font-bold">Promocion Especial</h3>
+                </div>
+                <p className="text-sm opacity-90">Abra su CDT digital y obtenga una tasa preferencial. Consulte con su asesor.</p>
+              </div>
+            </section>
+          )}
+
+          {features.feature_loyalty_points && (
+            <section className="mt-4 px-4" data-testid="feature-loyalty-points">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Star className="text-yellow-500 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Puntos Davivienda</p>
+                    <p className="text-xs text-gray-600">Acumule puntos con cada transaccion</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-yellow-600">1,250</p>
+                  <p className="text-xs text-gray-500">puntos</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_transfer_limits && (
+            <section className="mt-4 px-4" data-testid="feature-transfer-limits">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+                <Shield className="text-blue-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Limite diario de transferencias</p>
+                  <p className="text-xs text-gray-600">Su limite diario es de $10,000,000 COP para proteger su cuenta</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_account_insurance && (
+            <section className="mt-4 px-4" data-testid="feature-account-insurance">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
+                <Shield className="text-emerald-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Seguro de Cuenta Activo</p>
+                  <p className="text-xs text-gray-600">Su cuenta esta protegida contra fraude y transacciones no autorizadas</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_bank_certificate && (
+            <section className="mt-4 px-4" data-testid="feature-bank-certificate">
+              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Award className="text-red-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Certificado Bancario</p>
+                    <p className="text-xs text-gray-600">Genere su certificado bancario digital</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/certificados')}
+                  className="bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-bank-certificate"
+                >
+                  Ver
+                </button>
+              </div>
+            </section>
+          )}
+
+          {features.feature_account_statement && (
+            <section className="mt-4 px-4" data-testid="feature-account-statement">
+              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileDown className="text-blue-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Extracto de Cuenta</p>
+                    <p className="text-xs text-gray-600">Descargue su extracto mensual</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/history')}
+                  className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-account-statement"
+                >
+                  Ver
+                </button>
+              </div>
+            </section>
+          )}
+
+          {features.feature_scheduled_payments && (
+            <section className="mt-4 px-4" data-testid="feature-scheduled-payments">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-3">
+                <CalendarClock className="text-orange-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Pagos Programados</p>
+                  <p className="text-xs text-gray-600">No tiene pagos programados pendientes</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_custom_messages && (
+            <section className="mt-4 px-4" data-testid="feature-custom-messages">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                <p className="font-semibold text-sm text-indigo-800">Mensaje de su banco</p>
+                <p className="text-xs text-indigo-700 mt-1">Bienvenido a Davivienda. Estamos comprometidos con la seguridad de sus finanzas. Recuerde no compartir sus datos de acceso con nadie.</p>
+              </div>
+            </section>
+          )}
+
+          {features.feature_priority_support && (
+            <section className="mt-4 px-4" data-testid="feature-priority-support">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Headphones className="text-purple-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Soporte Prioritario</p>
+                    <p className="text-xs text-gray-600">Tiene acceso a atencion preferencial</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleContactSupport}
+                  className="bg-purple-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-priority-support"
+                >
+                  Contactar
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Le puede interesar */}
           <section className="mt-6 px-4">
