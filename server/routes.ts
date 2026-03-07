@@ -845,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/accounts/:id/balance", isAdmin, async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
-      const { amount, message, reference: customReference, transactionName } = req.body;
+      const { amount, message, reference: customReference, transactionName, customDate } = req.body;
       
       if (!amount || isNaN(amount)) {
         return res.status(400).json({ message: "Monto inválido" });
@@ -869,11 +869,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactionDescription = transactionName || message || (amount > 0 ? "Ajuste de saldo positivo" : "Ajuste de saldo negativo");
       const reference = customReference || `ADJ-${Date.now().toString().slice(-6)}`;
       
+      const transactionDate = customDate ? new Date(customDate) : new Date();
+      
       await storage.createTransaction({
         accountId,
         amount: transactionAmount,
         description: transactionDescription,
-        date: new Date(),
+        date: transactionDate,
         type: transactionType,
         reference,
         recipientId: null

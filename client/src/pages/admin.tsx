@@ -170,7 +170,8 @@ const AdminPage = () => {
     sucursal: "Sucursal Principal",
     message: "",
     reference: "",
-    transactionName: "" // Nuevo campo para personalizar el nombre de la transacción
+    transactionName: "",
+    customDate: ""
   });
   
   const [statusData, setStatusData] = useState({
@@ -807,7 +808,8 @@ const AdminPage = () => {
         sucursal: balanceData.sucursal,
         message: balanceData.message,
         reference: balanceData.reference,
-        transactionName: balanceData.transactionName // Enviar el nombre personalizado de la transacción
+        transactionName: balanceData.transactionName,
+        customDate: balanceData.customDate || undefined
       });
       
       if (!response.ok) {
@@ -1472,7 +1474,8 @@ const AdminPage = () => {
                                   sucursal: "Sucursal Principal",
                                   message: "",
                                   reference: "",
-                                  transactionName: ""
+                                  transactionName: "",
+                                  customDate: ""
                                 });
                                 setIsAddBalanceDialogOpen(true);
                               }}
@@ -2719,6 +2722,23 @@ const AdminPage = () => {
                 onChange={(e) => setBalanceData({...balanceData, reference: e.target.value})}
                 placeholder="Opcional: Referencia personalizada para la transacción"
               />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="customDateField" className="text-right">
+                Fecha visible
+              </Label>
+              <Input
+                id="customDateField"
+                data-testid="input-custom-date"
+                type="datetime-local"
+                className="col-span-3"
+                value={balanceData.customDate || ""}
+                onChange={(e) => setBalanceData({...balanceData, customDate: e.target.value})}
+              />
+              <p className="col-span-3 col-start-2 text-xs text-gray-500">
+                Opcional: Fecha que verá el usuario en su historial. Si se deja vacío se usa la fecha actual.
+              </p>
             </div>
           </div>
           
