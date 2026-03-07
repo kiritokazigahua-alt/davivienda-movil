@@ -108,6 +108,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default data in database
   await storage.initializeDefaultData();
   
+  const mobileAppSetting = await storage.getSetting("mobile_app_enabled");
+  if (!mobileAppSetting) {
+    await storage.setSetting("mobile_app_enabled", "true", "Activar/desactivar botón de instalación de Banca Móvil", 1);
+  }
+  
   app.set('trust proxy', 1);
   
   const isProduction = process.env.NODE_ENV === 'production';
