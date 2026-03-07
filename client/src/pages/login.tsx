@@ -428,7 +428,7 @@ const LoginPage = () => {
       <div className="flex-1 relative min-h-0 overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center">
           <img
-            src="https://images.pexels.com/photos/762020/pexels-photo-762020.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1"
+            src="/welcome-woman.jpg"
             alt="Mujer feliz con smartphone"
             className="w-56 h-64 object-cover rounded-lg"
           />
