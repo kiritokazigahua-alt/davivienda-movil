@@ -1848,7 +1848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(200).json({ value: user.customSupportPhone, source: "custom" });
       }
       const setting = await storage.getSetting("support_phone");
-      return res.status(200).json({ value: setting?.value || "+573209233903", source: "global" });
+      return res.status(200).json({ value: setting?.value || "+573208646620", source: "global" });
     } catch (error) {
       res.status(500).json({ message: "Error en el servidor" });
     }

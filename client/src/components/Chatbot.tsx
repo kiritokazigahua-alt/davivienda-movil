@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { MessageCircle, X, Send, Bot, User, Phone } from 'lucide-react';
 
 interface Message {
   id: number;
@@ -7,6 +7,8 @@ interface Message {
   sender: 'user' | 'bot';
   timestamp: Date;
   options?: string[];
+  isWhatsAppLink?: boolean;
+  whatsAppNumber?: string;
 }
 
 const FAQ_DATA: Record<string, { answer: string; options?: string[] }> = {
@@ -61,10 +63,6 @@ const FAQ_DATA: Record<string, { answer: string; options?: string[] }> = {
     answer: "Para cambiar su contraseña:\n\n1. Inicie sesión en su cuenta.\n2. Vaya a la sección \"Perfil\".\n3. Seleccione \"Cambiar contraseña\".\n4. Ingrese su contraseña actual y la nueva contraseña.\n5. La nueva contraseña debe tener al menos 6 caracteres.\n\nRecuerde usar una contraseña segura que combine letras y números.",
     options: ["Problemas con mi cuenta", "Volver al menú principal"]
   },
-  "hablar con un asesor": {
-    answer: "Para hablar con un asesor:\n\n• Puede llamar a nuestra línea de atención al cliente desde la app tocando el ícono de teléfono.\n• También puede escribirnos por WhatsApp.\n• Nuestros asesores están disponibles para ayudarle.\n\nEncuentre estas opciones en la pantalla de inicio o en su perfil.",
-    options: ["Volver al menú principal"]
-  },
   "¿cómo uso el código qr?": {
     answer: "Para usar el código QR:\n\n1. Toque \"QR\" en el menú central.\n2. Puede escanear un código QR para realizar pagos.\n3. También puede generar su propio código QR para recibir dinero.\n\nEs una forma rápida y segura de hacer transacciones.",
     options: ["¿Cómo hago una transferencia?", "Volver al menú principal"]
@@ -75,7 +73,7 @@ const FAQ_DATA: Record<string, { answer: string; options?: string[] }> = {
   }
 };
 
-function findAnswer(input: string): { answer: string; options?: string[] } {
+function findAnswer(input: string): { answer: string; options?: string[]; isAdvisor?: boolean } {
   const normalized = input.toLowerCase().trim();
 
   if (normalized === "volver al menú principal" || normalized === "menu" || normalized === "inicio") {
@@ -92,7 +90,7 @@ function findAnswer(input: string): { answer: string; options?: string[] } {
     "¿cómo pago mis servicios?": ["pagar", "pago", "servicio", "factura", "recibo"],
     "problemas con mi cuenta": ["problema", "error", "bloqueada", "bloqueo", "no funciona"],
     "¿cómo cambio mi contraseña?": ["contraseña", "clave", "password", "cambiar clave"],
-    "hablar con un asesor": ["asesor", "agente", "humano", "persona", "llamar", "contacto", "ayuda"],
+    "hablar con un asesor": ["asesor", "agente", "humano", "persona", "llamar", "contacto", "ayuda", "whatsapp", "soporte", "comunicar", "hablar"],
     "¿cómo uso el código qr?": ["qr", "código qr", "escanear"],
     "¿es segura la app?": ["segura", "seguridad", "confiable", "hackeo", "fraude"],
     "no puedo iniciar sesión": ["no puedo entrar", "no entra", "login", "iniciar sesión"],
@@ -101,6 +99,9 @@ function findAnswer(input: string): { answer: string; options?: string[] } {
 
   for (const [faqKey, words] of Object.entries(keywords)) {
     if (words.some(w => normalized.includes(w))) {
+      if (faqKey === "hablar con un asesor") {
+        return { ...FAQ_DATA[faqKey], isAdvisor: true };
+      }
       return FAQ_DATA[faqKey];
     }
   }
@@ -122,9 +123,32 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [supportPhone, setSupportPhone] = useState('');
+  const supportPhoneRef = useRef('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
+
+  const fetchSupportPhone = useCallback(async (): Promise<string> => {
+    try {
+      const res = await fetch('/api/settings/support_phone', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.value) {
+          setSupportPhone(data.value);
+          supportPhoneRef.current = data.value;
+          return data.value;
+        }
+      }
+    } catch {}
+    return supportPhoneRef.current || '+573208646620';
+  }, []);
+
+  useEffect(() => {
+    fetchSupportPhone();
+    const interval = setInterval(fetchSupportPhone, 10000);
+    return () => clearInterval(interval);
+  }, [fetchSupportPhone]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -139,11 +163,12 @@ export default function Chatbot() {
       addBotMessage(FAQ_DATA["greeting"].answer, FAQ_DATA["greeting"].options);
     }
     if (isOpen) {
+      fetchSupportPhone();
       setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [isOpen]);
 
-  const addBotMessage = (text: string, options?: string[]) => {
+  const addBotMessage = (text: string, options?: string[], isWhatsAppLink?: boolean, whatsAppNumber?: string) => {
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
@@ -152,12 +177,14 @@ export default function Chatbot() {
         text,
         sender: 'bot',
         timestamp: new Date(),
-        options
+        options,
+        isWhatsAppLink,
+        whatsAppNumber
       }]);
     }, 600);
   };
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const msg = text || inputText.trim();
     if (!msg) return;
 
@@ -169,8 +196,23 @@ export default function Chatbot() {
     }]);
     setInputText('');
 
+    const normalized = msg.toLowerCase().trim();
+    const isAdvisorRequest = normalized === "hablar con un asesor" || normalized.includes("asesor") || normalized.includes("whatsapp") || normalized.includes("soporte") || normalized.includes("contactar") || normalized.includes("comunicar");
+    
     const result = findAnswer(msg);
-    addBotMessage(result.answer, result.options);
+    
+    if (isAdvisorRequest || result.isAdvisor) {
+      const freshPhone = await fetchSupportPhone();
+      const cleanPhone = freshPhone.replace(/\s/g, '');
+      addBotMessage(
+        `Para comunicarse con un asesor de Davivienda, puede contactarnos directamente por WhatsApp al siguiente número:\n\n📱 *${freshPhone}*\n\nToque el botón de abajo para abrir WhatsApp y hablar con un asesor en tiempo real.`,
+        ["Volver al menú principal"],
+        true,
+        cleanPhone
+      );
+    } else {
+      addBotMessage(result.answer, result.options);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -178,6 +220,10 @@ export default function Chatbot() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const openWhatsApp = (number: string) => {
+    window.open(`https://wa.me/${number}?text=${encodeURIComponent("Hola, necesito ayuda con mi cuenta Davivienda")}`, '_blank');
   };
 
   return (
@@ -234,7 +280,12 @@ export default function Chatbot() {
                         : 'bg-white text-gray-800 rounded-bl-md shadow-sm'
                     }`}
                   >
-                    {msg.text}
+                    {msg.text.split(/(\*[^*]+\*)/).map((part, i) => {
+                      if (part.startsWith('*') && part.endsWith('*')) {
+                        return <strong key={i}>{part.slice(1, -1)}</strong>;
+                      }
+                      return <span key={i}>{part}</span>;
+                    })}
                   </div>
                   {msg.sender === 'user' && (
                     <div className="w-7 h-7 bg-gray-300 rounded-full flex items-center justify-center ml-2 shrink-0 mt-1">
@@ -242,6 +293,19 @@ export default function Chatbot() {
                     </div>
                   )}
                 </div>
+
+                {msg.isWhatsAppLink && msg.whatsAppNumber && (
+                  <div className="ml-9 mt-2">
+                    <button
+                      data-testid={`button-whatsapp-${msg.id}`}
+                      onClick={() => openWhatsApp(msg.whatsAppNumber!)}
+                      className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm active:scale-95 transition-all"
+                    >
+                      <Phone size={16} />
+                      Abrir WhatsApp
+                    </button>
+                  </div>
+                )}
 
                 {msg.options && msg.sender === 'bot' && (
                   <div className="ml-9 mt-2 flex flex-wrap gap-2">

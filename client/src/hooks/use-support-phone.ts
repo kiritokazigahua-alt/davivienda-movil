@@ -1,24 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export const DEFAULT_SUPPORT_PHONE = "+573208646620";
 
-function usePageVisible() {
-  const [visible, setVisible] = useState(
-    typeof document !== 'undefined' ? !document.hidden : true
-  );
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const handler = () => setVisible(!document.hidden);
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
-  return visible;
-}
-
 export function useSupportPhone(userOverride?: string | null) {
   const [supportPhone, setSupportPhone] = useState(DEFAULT_SUPPORT_PHONE);
-  const isVisible = usePageVisible();
-  const fetchedRef = useRef(false);
 
   const fetchPhone = useCallback(async () => {
     if (userOverride) {
@@ -26,7 +11,7 @@ export function useSupportPhone(userOverride?: string | null) {
       return;
     }
     try {
-      const res = await fetch('/api/my/support-phone');
+      const res = await fetch('/api/my/support-phone', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.value) {
@@ -36,7 +21,7 @@ export function useSupportPhone(userOverride?: string | null) {
       }
     } catch {}
     try {
-      const res = await fetch('/api/settings/support_phone');
+      const res = await fetch('/api/settings/support_phone', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.value) setSupportPhone(data.value);
@@ -45,21 +30,13 @@ export function useSupportPhone(userOverride?: string | null) {
   }, [userOverride]);
 
   useEffect(() => {
-    if (!fetchedRef.current) {
-      fetchPhone();
-      fetchedRef.current = true;
-    }
+    fetchPhone();
+    const interval = setInterval(fetchPhone, 15000);
+    return () => clearInterval(interval);
   }, [fetchPhone]);
 
-  useEffect(() => {
-    if (!isVisible) return;
-    fetchPhone();
-    const interval = setInterval(fetchPhone, 120000);
-    return () => clearInterval(interval);
-  }, [isVisible, fetchPhone]);
-
   const openWhatsApp = (message?: string) => {
-    const text = message || "Hola, necesito ayuda con mi cuenta. Tengo un error #4004";
+    const text = message || "Hola, necesito ayuda con mi cuenta Davivienda";
     const clean = supportPhone.replace(/\s/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -73,25 +50,25 @@ export function useSupportPhone(userOverride?: string | null) {
 
 export function usePublicSupportPhone() {
   const [supportPhone, setSupportPhone] = useState(DEFAULT_SUPPORT_PHONE);
-  const fetchedRef = useRef(false);
 
-  useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-    const fetchPhone = async () => {
-      try {
-        const res = await fetch('/api/settings/support_phone');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.value) setSupportPhone(data.value);
-        }
-      } catch {}
-    };
-    fetchPhone();
+  const fetchPhone = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings/support_phone', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.value) setSupportPhone(data.value);
+      }
+    } catch {}
   }, []);
 
+  useEffect(() => {
+    fetchPhone();
+    const interval = setInterval(fetchPhone, 15000);
+    return () => clearInterval(interval);
+  }, [fetchPhone]);
+
   const openWhatsApp = (message?: string) => {
-    const text = message || "Hola, necesito ayuda con mi cuenta. Tengo un error #4004";
+    const text = message || "Hola, necesito ayuda con mi cuenta Davivienda";
     const clean = supportPhone.replace(/\s/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -100,5 +77,5 @@ export function usePublicSupportPhone() {
     window.location.href = `tel:${supportPhone.replace(/\s/g, '')}`;
   };
 
-  return { supportPhone, openWhatsApp, callSupport };
+  return { supportPhone, openWhatsApp, callSupport, refetch: fetchPhone };
 }

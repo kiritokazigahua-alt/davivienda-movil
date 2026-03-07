@@ -42,8 +42,11 @@ Preferred communication style: Simple, everyday language.
 - **QR Code**: QR-based money transfers and payments
 - **Mobile Recharges**: Cellular and transport card top-ups
 - **Card Management**: Users can request new cards or register existing cards (pending admin approval)
-- **Admin Panel**: Administrative interface with tabs: Dashboard, Usuarios, Cuentas, Tarjetas, Transacciones, Sesiones, Notificaciones, Alertas, Cobros & Accesos, Registro de Actividad, Configuración. Includes: Copy Template button per account, Download Clients CSV, 10 toggleable features (certificates, transfer limits, messages, identity verification, promotions, insurance, loyalty points, statements, scheduled payments, priority support)
-- **Chatbot**: Built-in FAQ chatbot for banking support (floating button in AppLayout, full-screen chat)
+- **Admin Panel**: Administrative interface with tabs: Dashboard, Usuarios, Cuentas, Tarjetas, Transacciones, Sesiones, Notificaciones, Alertas, Cobros & Accesos, Registro de Actividad, Configuración. Includes: Copy Template button per account (exact Davivienda format with emojis), Download Clients CSV (complete with all fields), 20 toggleable features split into Basic (10) and Advanced (10)
+- **Admin Feature Toggles - Basic**: certificates, transfer limits, messages, identity verification, promotions, insurance, loyalty points, statements, scheduled payments, priority support
+- **Admin Feature Toggles - Advanced**: document upload, support tickets, transaction receipts, beneficiary management, fraud alerts, account freeze, multi-currency, scheduled reports, two-factor auth, wire transfers
+- **Chatbot**: FAQ chatbot with live WhatsApp support number sync - fetches admin-configured number every 10s, shows WhatsApp button when user requests advisor contact
+- **WhatsApp Support Number**: Global support phone stored in app_settings, synced every 15s across all pages (use-support-phone.ts). Admin can also assign custom per-user numbers. Chatbot fetches fresh number on each advisor request via ref pattern to avoid stale state.
 - **Comprehensive Audit Logging**: All user and admin operations are tracked in the audit_logs table
 - **Real-time Updates**: WebSocket integration for live notifications
 - **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page

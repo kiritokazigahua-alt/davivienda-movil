@@ -78,6 +78,16 @@ const AdminPage = () => {
     feature_account_statement: false,
     feature_scheduled_payments: false,
     feature_priority_support: false,
+    feature_document_upload: false,
+    feature_support_tickets: false,
+    feature_transaction_receipts: false,
+    feature_beneficiary_management: false,
+    feature_fraud_alerts: false,
+    feature_account_freeze: false,
+    feature_multi_currency: false,
+    feature_scheduled_reports: false,
+    feature_two_factor_auth: false,
+    feature_wire_transfer: false,
   });
 
   // Estado para audit logs
@@ -469,6 +479,16 @@ const AdminPage = () => {
     feature_account_statement: { name: "Extracto de Cuenta", description: "Permite a los usuarios generar y descargar extractos de cuenta" },
     feature_scheduled_payments: { name: "Pagos Programados", description: "Muestra seccion de recordatorios de pagos programados" },
     feature_priority_support: { name: "Soporte Prioritario", description: "Muestra badge de soporte prioritario y acceso rapido a ayuda" },
+    feature_document_upload: { name: "📄 Carga de Documentos", description: "Permite a los usuarios subir documentos de identidad, comprobantes de ingresos y otros archivos requeridos para verificacion de cuenta" },
+    feature_support_tickets: { name: "🎫 Tickets de Soporte", description: "Sistema de tickets donde los usuarios pueden crear solicitudes de soporte, reportar problemas y hacer seguimiento del estado de sus peticiones" },
+    feature_transaction_receipts: { name: "🧾 Comprobantes de Transaccion", description: "Genera comprobantes digitales descargables (PDF) para cada transferencia, pago o movimiento realizado en la cuenta" },
+    feature_beneficiary_management: { name: "👥 Gestion de Beneficiarios", description: "Panel avanzado para que los usuarios administren sus beneficiarios guardados: agregar, editar, eliminar y establecer favoritos" },
+    feature_fraud_alerts: { name: "🚨 Alertas de Fraude", description: "Sistema de deteccion de actividad sospechosa que notifica al usuario sobre inicios de sesion inusuales, transacciones atipicas o intentos de acceso no autorizados" },
+    feature_account_freeze: { name: "🔒 Congelamiento de Cuenta", description: "Permite al usuario congelar temporalmente su cuenta en caso de perdida de dispositivo, robo o sospecha de acceso no autorizado" },
+    feature_multi_currency: { name: "💱 Cuentas Multi-Divisa", description: "Muestra saldos en multiples divisas (USD, EUR, COP) con tasas de cambio en tiempo real y opcion de conversion entre monedas" },
+    feature_scheduled_reports: { name: "📊 Reportes Programados", description: "Genera reportes financieros automaticos (semanales/mensuales) con resumen de ingresos, gastos, tendencias y proyecciones de la cuenta" },
+    feature_two_factor_auth: { name: "🔐 Autenticacion de Dos Factores", description: "Agrega una capa extra de seguridad requiriendo un codigo de verificacion adicional al iniciar sesion o realizar transacciones importantes" },
+    feature_wire_transfer: { name: "🌐 Transferencias Internacionales", description: "Habilita transferencias bancarias internacionales (SWIFT/Wire) con soporte para diferentes paises, bancos corresponsales y rastreo en tiempo real" },
   };
 
   const handleToggleFeature = async (featureKey: string) => {
@@ -522,29 +542,23 @@ const AdminPage = () => {
     const balanceFormatted = formatCurrencyWithCode(account.balance, (account.currency as CurrencyCode) || 'COP');
     const currencyLabel = CURRENCIES[(account.currency as CurrencyCode) || 'COP']?.code || 'COP';
     
-    const template = `*ACTIVACION DE CUENTA BANCARIA - DAVIVIENDA*
+    const template = `*ACTIVACIÓN DE CUENTA BANCARIA – DAVIVIENDA* 
+Estimado *${account.userName || 'Cliente'}* ,
+por medio de este mensaje se realiza la entrega de los datos correspondientes a su cuenta bancaria Davivienda, habilitada para su activación y acceso.
+🏦 Banco: Davivienda
+💳 Tipo de cuenta: ${account.accountType === 'corriente' ? 'Corriente' : 'Ahorros'}
+🔢 Número de cuenta: 
+*${formattedAccountNumber}*
 
-Estimado *${account.userName || 'Cliente'}*,
-por medio de este mensaje se realiza la entrega de los datos correspondientes a su cuenta bancaria Davivienda, habilitada para su activacion y acceso.
-
-Banco: Davivienda
-Tipo de cuenta: ${account.accountType}
-Numero de cuenta: *${formattedAccountNumber}*
-
-Saldo disponible: ${balanceFormatted} ${currencyLabel}
-Titular: *${account.userName || 'Cliente'}*
-Documento (DNI): ${account.userDocument || 'N/A'}
-Correo electronico: ${account.userEmail || 'N/A'}
-
-*Datos de acceso*
-*Usuario*: ${account.userUsername || 'N/A'}
-*Contrasena*: (la que definio al registrarse)
-
-*Link de acceso Davivienda:*
-${appUrl}
-
-Este enlace le permitira ingresar a su cuenta y realizar la activacion correspondiente.
-
+💰 *Saldo disponible:* ${balanceFormatted} ${currencyLabel} 
+👤 *Titular:* *${account.userName || 'Cliente'}*
+🪪 *Documento (DNI):* ${account.userDocument || 'N/A'}
+📧 *Correo electrónico:* ${account.userEmail || 'N/A'}
+*🔐 Datos de acceso* *Usuario*:${account.userUsername || 'N/A'} 
+*Contraseña*: 1010
+*🔗 Link de acceso Davivienda:*
+[https://davivienda-virtual.replit.app]
+Este enlace le permitirá ingresar a su cuenta y realizar la activación correspondiente.
 Quedamos atentos ante cualquier novedad.`;
 
     navigator.clipboard.writeText(template).then(() => {
@@ -576,39 +590,70 @@ Quedamos atentos ante cualquier novedad.`;
       return;
     }
 
-    const headers = ["Nombre", "Usuario", "Email", "Documento", "Telefono", "Numero de Cuenta", "Tipo de Cuenta", "Saldo", "Divisa", "Estado"];
+    const headers = [
+      "ID", "Nombre Completo", "Usuario", "Email", "Documento", "Teléfono",
+      "Rol", "WhatsApp Personalizado", "Número de Cuenta", "Tipo de Cuenta",
+      "Saldo", "Divisa", "Estado de Cuenta", "Fecha de Registro"
+    ];
     
-    const rows = accounts.map(acc => {
+    const processedUserIds = new Set<number>();
+    
+    const accountRows = accounts.map(acc => {
       const usr = users.find(u => u.id === acc.userId);
+      if (usr) processedUserIds.add(usr.id);
       return [
+        usr?.id?.toString() || acc.userId?.toString() || '',
         usr?.name || acc.userName || '',
         usr?.username || acc.userUsername || '',
         usr?.email || acc.userEmail || '',
         usr?.document || acc.userDocument || '',
         usr?.phone || acc.userPhone || '',
+        usr?.role || 'user',
+        (usr as any)?.customSupportPhone || '',
         acc.accountNumber,
         acc.accountType,
         acc.balance.toString(),
         acc.currency || 'COP',
-        acc.status || 'ACTIVA'
+        acc.status || 'ACTIVA',
+        usr?.createdAt ? new Date(usr.createdAt).toLocaleDateString('es-CO') : ''
       ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(',');
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
+    const userOnlyRows = users
+      .filter(u => !processedUserIds.has(u.id) && u.role !== 'admin')
+      .map(usr => [
+        usr.id.toString(),
+        usr.name || '',
+        usr.username || '',
+        usr.email || '',
+        usr.document || '',
+        usr.phone || '',
+        usr.role || 'user',
+        (usr as any)?.customSupportPhone || '',
+        'Sin cuenta',
+        '',
+        '0',
+        '',
+        '',
+        usr.createdAt ? new Date(usr.createdAt).toLocaleDateString('es-CO') : ''
+      ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(','));
+
+    const allRows = [...accountRows, ...userOnlyRows];
+    const csvContent = [headers.join(','), ...allRows].join('\n');
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `clientes_davivienda_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `clientes_davivienda_completo_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
     toast({
-      title: "Descarga iniciada",
-      description: `Archivo con ${accounts.length} cuentas descargado`,
+      title: "Descarga completa",
+      description: `Archivo con ${allRows.length} registros descargado (${accounts.length} cuentas, ${userOnlyRows.length} usuarios sin cuenta)`,
     });
   };
 
@@ -2276,18 +2321,48 @@ Quedamos atentos ante cualquier novedad.`;
 
               <hr />
 
-              {/* Admin Feature Toggles */}
+              {/* Admin Feature Toggles - Basic */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Funciones de la Banca</h3>
+                <h3 className="text-lg font-semibold">Funciones Básicas de la Banca</h3>
                 <p className="text-sm text-gray-500">
-                  Active o desactive funciones que seran visibles para los usuarios en su banca movil.
+                  Active o desactive funciones que serán visibles para los usuarios en su banca móvil.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {Object.entries(ADMIN_FEATURE_LABELS).map(([key, { name, description }]) => (
+                  {Object.entries(ADMIN_FEATURE_LABELS).slice(0, 10).map(([key, { name, description }]) => (
                     <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                       <div className="flex-1 mr-3">
                         <p className="font-medium text-sm">{name}</p>
                         <p className="text-xs text-gray-500">{description}</p>
+                      </div>
+                      <Button
+                        data-testid={`button-toggle-${key}`}
+                        size="sm"
+                        onClick={() => handleToggleFeature(key)}
+                        className={adminFeatures[key] 
+                          ? "bg-green-600 hover:bg-green-700 text-white min-w-[100px]" 
+                          : "bg-gray-400 hover:bg-gray-500 text-white min-w-[100px]"}
+                      >
+                        {adminFeatures[key] ? "Activado" : "Desactivado"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <hr />
+
+              {/* Admin Feature Toggles - Advanced */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Funciones Avanzadas de la Banca</h3>
+                <p className="text-sm text-gray-500">
+                  Funciones avanzadas de tecnología bancaria para mejorar la experiencia y seguridad de los usuarios.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.entries(ADMIN_FEATURE_LABELS).slice(10).map(([key, { name, description }]) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex-1 mr-3">
+                        <p className="font-medium text-sm">{name}</p>
+                        <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
                       </div>
                       <Button
                         data-testid={`button-toggle-${key}`}

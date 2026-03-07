@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, Shield, Star, Clock, BadgeCheck, Gift, Award, FileDown, CalendarClock, Headphones } from 'lucide-react';
+import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, Shield, Star, Clock, BadgeCheck, Gift, Award, FileDown, CalendarClock, Headphones, Upload, Ticket, Receipt, Users, Bell, Lock, Coins, BarChart3, ShieldCheck, Globe } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatCurrencyWithCode } from '@/lib/utils';
 import { CurrencyCode } from '@/types';
@@ -474,6 +474,165 @@ const HomePage = () => {
                   data-testid="button-priority-support"
                 >
                   Contactar
+                </button>
+              </div>
+            </section>
+          )}
+
+          {features.feature_document_upload && (
+            <section className="mt-4 px-4" data-testid="feature-document-upload">
+              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Upload className="text-teal-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Carga de Documentos</p>
+                    <p className="text-xs text-gray-600">Suba documentos de identidad y comprobantes</p>
+                  </div>
+                </div>
+                <span className="bg-teal-100 text-teal-700 text-xs px-2 py-1 rounded-lg font-medium">Disponible</span>
+              </div>
+            </section>
+          )}
+
+          {features.feature_support_tickets && (
+            <section className="mt-4 px-4" data-testid="feature-support-tickets">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Ticket className="text-amber-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Tickets de Soporte</p>
+                    <p className="text-xs text-gray-600">Cree y haga seguimiento de sus solicitudes</p>
+                  </div>
+                </div>
+                <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-lg font-medium">0 abiertos</span>
+              </div>
+            </section>
+          )}
+
+          {features.feature_transaction_receipts && (
+            <section className="mt-4 px-4" data-testid="feature-transaction-receipts">
+              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Receipt className="text-sky-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Comprobantes Digitales</p>
+                    <p className="text-xs text-gray-600">Descargue comprobantes de sus transacciones</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/history')}
+                  className="bg-sky-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-transaction-receipts"
+                >
+                  Ver
+                </button>
+              </div>
+            </section>
+          )}
+
+          {features.feature_beneficiary_management && (
+            <section className="mt-4 px-4" data-testid="feature-beneficiary-management">
+              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className="text-violet-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Gestión de Beneficiarios</p>
+                    <p className="text-xs text-gray-600">Administre sus contactos y beneficiarios guardados</p>
+                  </div>
+                </div>
+                <span className="bg-violet-100 text-violet-700 text-xs px-2 py-1 rounded-lg font-medium">{beneficiaries?.length || 0} guardados</span>
+              </div>
+            </section>
+          )}
+
+          {features.feature_fraud_alerts && (
+            <section className="mt-4 px-4" data-testid="feature-fraud-alerts">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+                <Bell className="text-red-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Alertas de Fraude Activas</p>
+                  <p className="text-xs text-gray-600">Su cuenta está protegida con monitoreo de actividad sospechosa en tiempo real</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_account_freeze && (
+            <section className="mt-4 px-4" data-testid="feature-account-freeze">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Lock className="text-slate-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Congelamiento de Cuenta</p>
+                    <p className="text-xs text-gray-600">Congele su cuenta temporalmente si la necesita proteger</p>
+                  </div>
+                </div>
+                <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-lg font-medium">Activa</span>
+              </div>
+            </section>
+          )}
+
+          {features.feature_multi_currency && (
+            <section className="mt-4 px-4" data-testid="feature-multi-currency">
+              <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 flex items-center gap-3">
+                <Coins className="text-cyan-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Cuentas Multi-Divisa</p>
+                  <p className="text-xs text-gray-600">Opere en USD, EUR y COP con tasas de cambio actualizadas</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_scheduled_reports && (
+            <section className="mt-4 px-4" data-testid="feature-scheduled-reports">
+              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="text-indigo-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Reportes Financieros</p>
+                    <p className="text-xs text-gray-600">Reportes automáticos de ingresos y gastos</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/history')}
+                  className="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-scheduled-reports"
+                >
+                  Ver
+                </button>
+              </div>
+            </section>
+          )}
+
+          {features.feature_two_factor_auth && (
+            <section className="mt-4 px-4" data-testid="feature-two-factor-auth">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+                <ShieldCheck className="text-green-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Autenticación de Dos Factores</p>
+                  <p className="text-xs text-gray-600">Seguridad adicional activa en su cuenta para proteger sus operaciones</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {features.feature_wire_transfer && (
+            <section className="mt-4 px-4" data-testid="feature-wire-transfer">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Globe className="text-blue-600 shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-sm">Transferencias Internacionales</p>
+                    <p className="text-xs text-gray-600">Envíe dinero a cuentas en el exterior vía SWIFT</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/transfer')}
+                  className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg"
+                  data-testid="button-wire-transfer"
+                >
+                  Enviar
                 </button>
               </div>
             </section>
