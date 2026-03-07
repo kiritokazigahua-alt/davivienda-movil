@@ -412,38 +412,36 @@ const LoginPage = () => {
   );
 
   const welcomeScreen = (
-    <div className="flex flex-col min-h-screen bg-red-600">
+    <div className="fixed inset-0 flex flex-col bg-red-600 overflow-hidden">
       {isLoading && <LoadingOverlay text="Iniciando sesión..." />}
       
-      <div className="pt-10 pb-4 flex justify-center">
+      <div className="pt-8 pb-2 flex justify-center shrink-0">
         <DaviviendaLogo />
       </div>
       
-      <div className="text-white px-6 mb-6">
-        <h1 className="text-3xl font-bold mb-2">Nos alegra tenerle aquí</h1>
-        <p className="text-lg">En esta app puede hacerlo todo sin salir de casa.</p>
-        <p className="text-lg">¿Ya es nuestro cliente?</p>
+      <div className="text-white px-6 mb-2 shrink-0">
+        <h1 className="text-2xl font-bold mb-1">Nos alegra tenerle aquí</h1>
+        <p className="text-base">En esta app puede hacerlo todo sin salir de casa.</p>
+        <p className="text-base">¿Ya es nuestro cliente?</p>
       </div>
       
-      <div className="flex-1 flex items-center justify-center relative">
-        {/* Persona con smartphone */}
-        <div className="relative mt-4 flex items-center justify-center">
+      <div className="flex-1 relative min-h-0 overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center">
           <img
-            src="https://images.pexels.com/photos/762020/pexels-photo-762020.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+            src="https://images.pexels.com/photos/762020/pexels-photo-762020.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1"
             alt="Mujer feliz con smartphone"
-            className="w-64 h-80 object-cover"
+            className="w-56 h-64 object-cover rounded-lg"
           />
         </div>
         
-        {/* Curva inferior */}
-        <div className="absolute bottom-0 w-full h-32">
-          <div className="bg-white h-full rounded-t-[100%]"></div>
+        <div className="absolute bottom-0 w-full h-24">
+          <div className="bg-white h-full rounded-t-[50%]"></div>
         </div>
       </div>
       
-      <div className="w-full px-4 pb-8 space-y-4 relative z-10">
+      <div className="w-full px-4 pb-4 space-y-2 relative z-10 bg-white shrink-0">
         <Button 
-          className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-6 border-2 border-white shadow-md"
+          className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-5 border-2 border-white shadow-md"
           onClick={() => setShowWelcome(false)}
         >
           Soy cliente
@@ -451,7 +449,7 @@ const LoginPage = () => {
         
         <Button 
           variant="outline" 
-          className="w-full rounded-full bg-white text-black border border-gray-300 py-6 shadow-md"
+          className="w-full rounded-full bg-white text-black border border-gray-300 py-5 shadow-md"
           onClick={() => setShowRegisterDialog(true)}
         >
           Quiero un producto
@@ -460,7 +458,7 @@ const LoginPage = () => {
         {mobileAppEnabled && !isAppInstalled && (
           <Button 
             data-testid="button-install-app"
-            className="w-full rounded-full bg-white text-red-600 border-2 border-white py-6 shadow-md flex items-center justify-center gap-2 hover:bg-red-50"
+            className="w-full rounded-full bg-red-50 text-red-600 border border-red-200 py-5 shadow-md flex items-center justify-center gap-2 hover:bg-red-100"
             onClick={handleInstallApp}
           >
             <Smartphone className="h-5 w-5" />
@@ -470,47 +468,46 @@ const LoginPage = () => {
         )}
 
         {isAppInstalled && (
-          <div className="text-center text-white text-sm opacity-80">
-            ✓ Banca Móvil instalada
+          <div className="text-center text-green-600 text-sm font-medium">
+            Banca Móvil instalada
           </div>
         )}
         
-        <div className="flex justify-between px-6 pt-4">
+        <div className="flex justify-around px-2 pt-2">
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => window.open("https://www.pse.com.co/persona", "_blank")}
           >
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-gray-800" />
+            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-gray-700" />
             </div>
-            <span className="text-xs text-gray-800 mt-1">Pagos PSE</span>
+            <span className="text-[10px] text-gray-600 mt-1">Pagos PSE</span>
           </div>
           
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => navigate("/payments")}
           >
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22M12 2C9.49872 4.73835 8.07725 8.29203 8 12C8.07725 15.708 9.49872 19.2616 12 22M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22M2.50002 9H21.5M2.5 15H21.5" stroke="gray" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22M12 2C9.49872 4.73835 8.07725 8.29203 8 12C8.07725 15.708 9.49872 19.2616 12 22M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22M2.50002 9H21.5M2.5 15H21.5" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-xs text-gray-800 mt-1">Le puede interesar</span>
+            <span className="text-[10px] text-gray-600 mt-1">Le interesa</span>
           </div>
           
           <div 
             className="flex flex-col items-center cursor-pointer"
             onClick={() => navigate("/profile")}
           >
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-              <List className="h-5 w-5 text-gray-800" />
+            <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
+              <List className="h-5 w-5 text-gray-700" />
             </div>
-            <span className="text-xs text-gray-800 mt-1">Más</span>
+            <span className="text-[10px] text-gray-600 mt-1">Más</span>
           </div>
         </div>
       </div>
       
-      {/* Botón de ayuda */}
       <div className="fixed bottom-4 right-4 z-20">
         <button 
           className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-2 border-white"
@@ -526,10 +523,10 @@ const LoginPage = () => {
   );
 
   const loginScreen = (
-    <div className="flex flex-col min-h-screen">
+    <div className="fixed inset-0 flex flex-col overflow-hidden">
       {isLoading && <LoadingOverlay text="Iniciando sesión..." />}
       
-      <div className="bg-red-600 h-16 flex items-center px-4">
+      <div className="bg-red-600 h-14 flex items-center px-4 shrink-0">
         <button 
           onClick={() => {
             setShowWelcome(true);
@@ -545,7 +542,7 @@ const LoginPage = () => {
         </div>
       </div>
       
-      <div className="p-5 flex-1 bg-gray-100">
+      <div className="p-5 flex-1 bg-gray-100 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
         {!showPasswordInput ? (
           <>
             <div className="mb-6">
