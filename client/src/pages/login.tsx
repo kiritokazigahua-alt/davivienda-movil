@@ -46,6 +46,11 @@ const LoginPage = () => {
   const [mobileAppEnabled, setMobileAppEnabled] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isSamsung = /SamsungBrowser/.test(navigator.userAgent);
 
   useEffect(() => {
     fetch('/api/settings/mobile_app_enabled')
@@ -59,11 +64,20 @@ const LoginPage = () => {
     };
     window.addEventListener('beforeinstallprompt', handler);
 
+    const installedHandler = () => {
+      setIsAppInstalled(true);
+      setShowInstallDialog(false);
+    };
+    window.addEventListener('appinstalled', installedHandler);
+
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsAppInstalled(true);
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+    };
   }, []);
 
   const handleInstallApp = async () => {
@@ -75,10 +89,7 @@ const LoginPage = () => {
       }
       setDeferredPrompt(null);
     } else {
-      toast({
-        title: "Instalar Davivienda Móvil",
-        description: "Desde el menú de tu navegador, selecciona 'Agregar a pantalla de inicio' o 'Instalar aplicación'.",
-      });
+      setShowInstallDialog(true);
     }
   };
 
@@ -513,6 +524,88 @@ const LoginPage = () => {
         </button>
       </div>
       
+      <Dialog open={showInstallDialog} onOpenChange={setShowInstallDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-red-600" />
+              Instalar Davivienda Móvil
+            </DialogTitle>
+            <DialogDescription>
+              Instale la aplicación en su dispositivo para acceder más rápido
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+              <img src="/icon-192x192.png" alt="Davivienda" className="w-12 h-12 rounded-xl" />
+              <div>
+                <p className="font-semibold text-gray-900">Davivienda Móvil</p>
+                <p className="text-xs text-gray-500">Banca en línea segura</p>
+              </div>
+            </div>
+
+            {isIOS ? (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700">Siga estos pasos en Safari:</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                    <p className="text-sm text-gray-700 pt-1">Toque el botón <strong>Compartir</strong> (el cuadrado con la flecha hacia arriba) en la barra inferior de Safari</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                    <p className="text-sm text-gray-700 pt-1">Desplácese y seleccione <strong>"Agregar a pantalla de inicio"</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</div>
+                    <p className="text-sm text-gray-700 pt-1">Toque <strong>"Agregar"</strong> para confirmar la instalación</p>
+                  </div>
+                </div>
+              </div>
+            ) : isAndroid ? (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700">Siga estos pasos:</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                    <p className="text-sm text-gray-700 pt-1">Toque los <strong>tres puntos</strong> (⋮) en la esquina superior derecha del navegador</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                    <p className="text-sm text-gray-700 pt-1">Seleccione <strong>{isSamsung ? '"Añadir página a"' : '"Instalar aplicación"'}</strong> {isSamsung ? 'y luego "Pantalla de inicio"' : 'o "Agregar a pantalla de inicio"'}</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</div>
+                    <p className="text-sm text-gray-700 pt-1">Confirme tocando <strong>"Instalar"</strong></p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700">Para instalar la aplicación:</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                    <p className="text-sm text-gray-700 pt-1">Abra el menú del navegador</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                    <p className="text-sm text-gray-700 pt-1">Seleccione <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla de inicio"</strong></p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end">
+            <Button onClick={() => setShowInstallDialog(false)} className="bg-red-600 hover:bg-red-700 text-white">
+              Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {registerDialog}
       {recoveryDialog}
     </div>

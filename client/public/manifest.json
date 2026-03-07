@@ -3,6 +3,7 @@
   "short_name": "Davivienda",
   "description": "Aplicación móvil de Davivienda para gestionar tus finanzas personales",
   "start_url": "/",
+  "id": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
@@ -14,12 +15,26 @@
     {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
