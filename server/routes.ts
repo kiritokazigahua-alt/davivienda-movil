@@ -447,6 +447,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/reports/financial", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const user = await storage.getUser(userId);
+      const account = await storage.getAccountByUserId(userId);
+
+      if (!account || !user) {
+        return res.status(404).json({ message: "Cuenta no encontrada" });
+      }
+
+      const allTransactions = await storage.getTransactionsByAccountId(account.id);
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+      const monthlyData: Record<string, { income: number; expenses: number; count: number; month: string; year: number; monthIndex: number }> = {};
+      const typeBreakdown: Record<string, { count: number; total: number }> = {};
+      let totalIncome = 0;
+      let totalExpenses = 0;
+      let largestIncome = { amount: 0, description: '', date: '' };
+      let largestExpense = { amount: 0, description: '', date: '' };
+      const last30Days: typeof allTransactions = [];
+      const last90Days: typeof allTransactions = [];
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+      const outflowTypes = new Set(['withdrawal', 'payment', 'transfer']);
+      const inflowTypes = new Set(['deposit']);
+
+      for (const t of allTransactions) {
+        const tDate = new Date(t.date);
+        const monthKey = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
+        const rawAmt = Number(t.amount) || 0;
+        const absAmt = Math.abs(rawAmt);
+
+        const isOutflow = outflowTypes.has(t.type) || rawAmt < 0;
+        const isInflow = !isOutflow;
+
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { income: 0, expenses: 0, count: 0, month: monthNames[tDate.getMonth()], year: tDate.getFullYear(), monthIndex: tDate.getMonth() };
+        }
+        monthlyData[monthKey].count++;
+
+        if (isInflow) {
+          monthlyData[monthKey].income += absAmt;
+          totalIncome += absAmt;
+          if (absAmt > largestIncome.amount) {
+            largestIncome = { amount: absAmt, description: t.description || t.type, date: t.date };
+          }
+        } else {
+          monthlyData[monthKey].expenses += absAmt;
+          totalExpenses += absAmt;
+          if (absAmt > largestExpense.amount) {
+            largestExpense = { amount: absAmt, description: t.description || t.type, date: t.date };
+          }
+        }
+
+        const tType = t.type || 'other';
+        if (!typeBreakdown[tType]) typeBreakdown[tType] = { count: 0, total: 0 };
+        typeBreakdown[tType].count++;
+        typeBreakdown[tType].total += Math.abs(amt);
+
+        if (tDate >= thirtyDaysAgo) last30Days.push(t);
+        if (tDate >= ninetyDaysAgo) last90Days.push(t);
+      }
+
+      const sortedMonths = Object.entries(monthlyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-6)
+        .map(([key, data]) => ({ key, ...data, net: data.income - data.expenses }));
+
+      const classifyFlow = (t: any) => outflowTypes.has(t.type) || Number(t.amount) < 0;
+      const last30Income = last30Days.filter(t => !classifyFlow(t)).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const last30Expenses = last30Days.filter(t => classifyFlow(t)).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const last30Net = last30Income - last30Expenses;
+
+      const prev30Start = new Date(thirtyDaysAgo.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const prev30Days = allTransactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= prev30Start && d < thirtyDaysAgo;
+      });
+      const prev30Expenses = prev30Days.filter(t => classifyFlow(t)).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const prev30Income = prev30Days.filter(t => !classifyFlow(t)).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+
+      const insights: string[] = [];
+      const recommendations: string[] = [];
+
+      if (allTransactions.length === 0) {
+        insights.push("Aún no tienes transacciones registradas. Comienza a usar tu cuenta para ver análisis personalizados.");
+      } else {
+        const avgMonthlyExpense = sortedMonths.length > 0 ? sortedMonths.reduce((s, m) => s + m.expenses, 0) / sortedMonths.length : 0;
+        const avgMonthlyIncome = sortedMonths.length > 0 ? sortedMonths.reduce((s, m) => s + m.income, 0) / sortedMonths.length : 0;
+
+        if (prev30Expenses > 0) {
+          const expenseChange = ((last30Expenses - prev30Expenses) / prev30Expenses) * 100;
+          if (expenseChange > 15) {
+            insights.push(`Tus gastos aumentaron un ${Math.round(expenseChange)}% en los últimos 30 días comparado con el periodo anterior. Revisa si hay gastos que puedas optimizar.`);
+            recommendations.push("Establece un presupuesto mensual para controlar mejor tus gastos.");
+          } else if (expenseChange < -10) {
+            insights.push(`¡Buen trabajo! Tus gastos disminuyeron un ${Math.abs(Math.round(expenseChange))}% respecto al periodo anterior.`);
+          } else {
+            insights.push("Tus gastos se mantienen estables comparados con el mes anterior.");
+          }
+        }
+
+        if (prev30Income > 0) {
+          const incomeChange = ((last30Income - prev30Income) / prev30Income) * 100;
+          if (incomeChange > 10) {
+            insights.push(`Tus ingresos crecieron un ${Math.round(incomeChange)}% este mes. ¡Excelente tendencia!`);
+          } else if (incomeChange < -15) {
+            insights.push(`Tus ingresos bajaron un ${Math.abs(Math.round(incomeChange))}% respecto al periodo anterior.`);
+            recommendations.push("Diversifica tus fuentes de ingreso para mayor estabilidad financiera.");
+          }
+        }
+
+        const savingsRate = last30Income > 0 ? ((last30Income - last30Expenses) / last30Income) * 100 : 0;
+        if (savingsRate > 30) {
+          insights.push(`Tu tasa de ahorro es del ${Math.round(savingsRate)}%. Estás ahorrando de manera excelente.`);
+          recommendations.push("Considera invertir parte de tus ahorros para generar rendimientos.");
+        } else if (savingsRate > 10) {
+          insights.push(`Tu tasa de ahorro es del ${Math.round(savingsRate)}%. Es un buen comienzo, pero podrías mejorar.`);
+          recommendations.push("Intenta ahorrar al menos el 20% de tus ingresos mensuales.");
+        } else if (savingsRate > 0) {
+          insights.push(`Tu tasa de ahorro es baja (${Math.round(savingsRate)}%). Considera reducir gastos no esenciales.`);
+          recommendations.push("Revisa tus suscripciones y gastos recurrentes, podrías encontrar ahorros significativos.");
+        } else if (last30Income > 0) {
+          insights.push("Estás gastando más de lo que ingresas. Es importante ajustar tu presupuesto.");
+          recommendations.push("Crea un fondo de emergencia equivalente a 3-6 meses de gastos.");
+        }
+
+        const topType = Object.entries(typeBreakdown).sort(([,a], [,b]) => b.total - a.total)[0];
+        if (topType) {
+          const typeLabels: Record<string, string> = { deposit: 'depósitos', withdrawal: 'retiros', transfer: 'transferencias', payment: 'pagos' };
+          insights.push(`Tu tipo de transacción más frecuente son los ${typeLabels[topType[0]] || topType[0]} (${topType[1].count} transacciones).`);
+        }
+
+        if (Number(account.balance) > avgMonthlyExpense * 6) {
+          recommendations.push("Tienes un colchón financiero sólido. Podrías considerar opciones de inversión a mediano plazo.");
+        } else if (Number(account.balance) < avgMonthlyExpense * 2) {
+          recommendations.push("Tu saldo actual cubre menos de 2 meses de gastos promedio. Prioriza construir un fondo de emergencia.");
+        }
+
+        if (allTransactions.length > 10) {
+          const weekdayTx = last30Days.filter(t => { const d = new Date(t.date).getDay(); return d > 0 && d < 6; });
+          const weekendTx = last30Days.filter(t => { const d = new Date(t.date).getDay(); return d === 0 || d === 6; });
+          if (weekendTx.length > weekdayTx.length * 0.5) {
+            insights.push("Realizas una cantidad significativa de transacciones los fines de semana.");
+          }
+        }
+
+        if (largestExpense.amount > avgMonthlyExpense * 0.5 && avgMonthlyExpense > 0) {
+          insights.push(`Tu gasto más grande fue de $${largestExpense.amount.toLocaleString()} (${largestExpense.description}).`);
+        }
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push("Mantén un registro constante de tus gastos para tomar mejores decisiones financieras.");
+        recommendations.push("Configura alertas de transacciones para estar siempre informado de los movimientos de tu cuenta.");
+      }
+
+      const healthScore = Math.min(100, Math.max(0, Math.round(
+        (allTransactions.length > 0 ? 20 : 0) +
+        (last30Net >= 0 ? 25 : Math.max(0, 25 + (last30Net / (last30Expenses || 1)) * 25)) +
+        (Number(account.balance) > 0 ? 20 : 0) +
+        ((totalIncome > totalExpenses) ? 20 : Math.max(0, 20 * (totalIncome / (totalExpenses || 1)))) +
+        (allTransactions.length >= 5 ? 15 : allTransactions.length * 3)
+      )));
+
+      let healthLabel = 'Excelente';
+      let healthColor = 'green';
+      if (healthScore < 40) { healthLabel = 'Necesita atención'; healthColor = 'red'; }
+      else if (healthScore < 60) { healthLabel = 'Regular'; healthColor = 'yellow'; }
+      else if (healthScore < 80) { healthLabel = 'Bueno'; healthColor = 'blue'; }
+
+      return res.json({
+        generatedAt: now.toISOString(),
+        userName: user.name,
+        accountNumber: account.accountNumber,
+        accountType: account.accountType,
+        currency: account.currency,
+        currentBalance: Number(account.balance),
+        summary: {
+          totalTransactions: allTransactions.length,
+          totalIncome,
+          totalExpenses,
+          netFlow: totalIncome - totalExpenses,
+          last30Days: { income: last30Income, expenses: last30Expenses, net: last30Net, count: last30Days.length },
+          last90Days: { count: last90Days.length },
+        },
+        healthScore: { score: healthScore, label: healthLabel, color: healthColor },
+        monthlyTrend: sortedMonths,
+        typeBreakdown: Object.entries(typeBreakdown).map(([type, data]) => ({
+          type,
+          label: { deposit: 'Depósitos', withdrawal: 'Retiros', transfer: 'Transferencias', payment: 'Pagos' }[type] || type,
+          ...data,
+        })),
+        highlights: { largestIncome, largestExpense },
+        insights,
+        recommendations,
+      });
+    } catch (error) {
+      console.error("Error generating financial report:", error);
+      return res.status(500).json({ message: "Error generando reporte" });
+    }
+  });
+
   app.post("/api/transactions/transfer", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId as number;

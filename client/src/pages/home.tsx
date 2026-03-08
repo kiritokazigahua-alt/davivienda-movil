@@ -437,6 +437,25 @@ const HomePage = () => {
             </section>
           )}
 
+          <section className="mt-4 px-4" data-testid="feature-financial-reports">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="text-purple-600 shrink-0" size={24} />
+                <div>
+                  <p className="font-semibold text-sm">Reportes Financieros</p>
+                  <p className="text-xs text-gray-600">Análisis inteligente de tu cuenta con IA</p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/reports')}
+                className="bg-purple-600 text-white text-xs px-3 py-1.5 rounded-lg active:scale-95"
+                data-testid="button-financial-reports"
+              >
+                Ver
+              </button>
+            </div>
+          </section>
+
           {features.feature_scheduled_payments && (
             <section className="mt-4 px-4" data-testid="feature-scheduled-payments">
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-3">

@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
 - **Multi-level Access System**: God Panel (password 1083839142, session-based), Admin (isAdmin=1), Assistant (isAdmin=1 + role='assistant' with selective permissions from assistant_permissions table), User, Visitor
 - **God Panel** (`/god-panel`): Hidden access via "de" in admin title. 8 tabs: Overview, Users, Accounts, Sessions, Audit, Visitors, Security, Settings. Full system reports (TXT + CSV), admin password change, suspicious activity view. Visitor tracking via visitor_logs table.
 - **Assistant System**: Admin can create assistants via "Asistentes" tab with 22 granular permission categories. Assistants have admin-level access filtered by assigned permissions. CRUD via `/api/admin/assistants` routes.
+- **Financial Reports** (`/reports`): Personalized AI-driven financial analysis with health score ring (0-100), monthly trend charts, transaction type breakdown, cash flow analysis, spending pattern insights, savings rate analysis, and actionable recommendations. Downloadable as TXT report. API: `GET /api/reports/financial`
 - **Real-time Updates**: WebSocket integration for live notifications
 - **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page
 - **Haptic Feedback**: Vibration API on navigation button clicks
