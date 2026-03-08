@@ -9,7 +9,9 @@ import {
   cardNotifications, CardNotification, InsertCardNotification,
   appSettings, AppSetting, InsertAppSetting,
   accountCharges, AccountCharge, InsertAccountCharge,
-  auditLogs, AuditLog, InsertAuditLog
+  auditLogs, AuditLog, InsertAuditLog,
+  assistantPermissions, AssistantPermission, InsertAssistantPermission,
+  visitorLogs, VisitorLog, InsertVisitorLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -99,6 +101,15 @@ export interface IStorage {
   getAllAuditLogs(): Promise<AuditLog[]>;
   getAuditLogsByAction(action: string): Promise<AuditLog[]>;
   getAuditLogsByEntity(entityType: string, entityId?: number): Promise<AuditLog[]>;
+
+  // Assistant permissions operations
+  getAssistantPermissions(userId: number): Promise<AssistantPermission | undefined>;
+  setAssistantPermissions(userId: number, permissions: string[], createdBy: number): Promise<AssistantPermission>;
+  getAllAssistants(): Promise<Array<User & { permissions?: string[] }>>;
+
+  // Visitor log operations
+  createVisitorLog(log: InsertVisitorLog): Promise<VisitorLog>;
+  getAllVisitorLogs(limit?: number): Promise<VisitorLog[]>;
 
   // Initialization
   initializeDefaultData(): Promise<void>;
@@ -815,6 +826,53 @@ export class DatabaseStorage implements IStorage {
     await this.setSetting("mobile_app_enabled", "true", "Activar/desactivar botón de instalación de Banca Móvil", adminUser.id);
     
     console.log("Default data initialized successfully");
+  }
+
+  // Assistant permissions operations
+  async getAssistantPermissions(userId: number): Promise<AssistantPermission | undefined> {
+    const [permission] = await db.select().from(assistantPermissions).where(eq(assistantPermissions.userId, userId));
+    return permission;
+  }
+
+  async setAssistantPermissions(userId: number, permissions: string[], createdBy: number): Promise<AssistantPermission> {
+    const existing = await this.getAssistantPermissions(userId);
+    if (existing) {
+      const [updated] = await db.update(assistantPermissions)
+        .set({ permissions: JSON.stringify(permissions), updatedAt: new Date() })
+        .where(eq(assistantPermissions.userId, userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(assistantPermissions)
+      .values({ userId, permissions: JSON.stringify(permissions), createdBy })
+      .returning();
+    return created;
+  }
+
+  async getAllAssistants(): Promise<Array<User & { permissions?: string[] }>> {
+    const assistants = await db.select().from(users).where(eq(users.role, 'assistant'));
+    const result = [];
+    for (const assistant of assistants) {
+      const perms = await this.getAssistantPermissions(assistant.id);
+      result.push({
+        ...assistant,
+        permissions: perms ? JSON.parse(perms.permissions) : []
+      });
+    }
+    return result;
+  }
+
+  // Visitor log operations
+  async createVisitorLog(log: InsertVisitorLog): Promise<VisitorLog> {
+    const [created] = await db.insert(visitorLogs).values(log).returning();
+    return created;
+  }
+
+  async getAllVisitorLogs(limit?: number): Promise<VisitorLog[]> {
+    if (limit) {
+      return db.select().from(visitorLogs).orderBy(desc(visitorLogs.createdAt)).limit(limit);
+    }
+    return db.select().from(visitorLogs).orderBy(desc(visitorLogs.createdAt));
   }
 }
 

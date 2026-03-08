@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM for type-safe database operations
 - **Connection**: Neon serverless PostgreSQL with connection pooling
 - **Schema**: Well-defined relational schema with proper foreign key constraints
-- **Tables**: users, accounts, transactions, beneficiaries, services, cards, card_notifications, account_charges, app_settings, user_sessions, audit_logs
+- **Tables**: users, accounts, transactions, beneficiaries, services, cards, card_notifications, account_charges, app_settings, user_sessions, audit_logs, assistant_permissions, visitor_logs
 
 ### Key Features
 - **Authentication**: Session-based authentication with login/logout/register functionality
@@ -48,6 +48,9 @@ Preferred communication style: Simple, everyday language.
 - **Chatbot**: FAQ chatbot with live WhatsApp support number sync - fetches admin-configured number every 10s, shows WhatsApp button when user requests advisor contact
 - **WhatsApp Support Number**: Global support phone stored in app_settings, synced every 15s across all pages (use-support-phone.ts). Admin can also assign custom per-user numbers. Chatbot fetches fresh number on each advisor request via ref pattern to avoid stale state.
 - **Comprehensive Audit Logging**: All user and admin operations are tracked in the audit_logs table
+- **Multi-level Access System**: God Panel (password 1083839142, session-based), Admin (isAdmin=1), Assistant (isAdmin=1 + role='assistant' with selective permissions from assistant_permissions table), User, Visitor
+- **God Panel** (`/god-panel`): Hidden access via "de" in admin title. 8 tabs: Overview, Users, Accounts, Sessions, Audit, Visitors, Security, Settings. Full system reports (TXT + CSV), admin password change, suspicious activity view. Visitor tracking via visitor_logs table.
+- **Assistant System**: Admin can create assistants via "Asistentes" tab with 22 granular permission categories. Assistants have admin-level access filtered by assigned permissions. CRUD via `/api/admin/assistants` routes.
 - **Real-time Updates**: WebSocket integration for live notifications
 - **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page
 - **Haptic Feedback**: Vibration API on navigation button clicks

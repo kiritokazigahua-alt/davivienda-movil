@@ -15,6 +15,7 @@ import CertificadosPage from "@/pages/certificados";
 import QrPage from "@/pages/qr";
 import QrPaymentPage from "@/pages/qr-payment";
 import AdminPage from "@/pages/admin";
+import GodPanelPage from "@/pages/god-panel";
 import CardsPage from "@/pages/cards";
 import PaymentSuccessPage from "@/pages/payment-success";
 import PaymentCancelPage from "@/pages/payment-cancel";
@@ -42,7 +43,7 @@ const userRoutes: { path: string; component: ComponentType }[] = [
   { path: "/cards", component: CardsPage },
 ];
 
-const adminPaths = ["/admin", ...userRoutes.map(r => r.path)];
+const adminPaths = ["/admin", "/god-panel", ...userRoutes.map(r => r.path)];
 
 function App() {
   const { isAuthenticated, setUser, user } = useStore((state) => state);
@@ -52,7 +53,7 @@ function App() {
     const currentUser = useStore.getState().user;
     const isUserAdmin = currentUser?.isAdmin === 1;
     
-    const isExemptPath = location.startsWith('/checkout/') || location.startsWith('/payment/');
+    const isExemptPath = location.startsWith('/checkout/') || location.startsWith('/payment/') || location === '/god-panel';
     if (isAuthenticated) {
       if (location === "/" || 
           (!isExemptPath && isUserAdmin && location !== "/admin") ||
@@ -97,7 +98,10 @@ function App() {
           <Route path="/checkout/:chargeId" component={CheckoutPage} />
         )}
 
-        {isAuthenticated && isAdmin && adminPaths.map((p) => (
+        {isAuthenticated && isAdmin && (
+          <Route path="/god-panel" component={GodPanelPage} />
+        )}
+        {isAuthenticated && isAdmin && adminPaths.filter(p => p !== "/god-panel").map((p) => (
           <Route key={p} path={p} component={AdminPage} />
         ))}
         

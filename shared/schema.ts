@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   phone: text("phone").notNull(),
   lastLogin: timestamp("last_login"),
   isAdmin: integer("is_admin").default(0).notNull(),
+  role: text("role").default("user"),
   customSupportPhone: text("custom_support_phone"),
 });
 
@@ -213,7 +214,53 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   createdAt: true,
 });
 
+// Assistant Permissions Schema
+export const assistantPermissions = pgTable("assistant_permissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  permissions: text("permissions").notNull().default("[]"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAssistantPermissionSchema = createInsertSchema(assistantPermissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Visitor Logs Schema
+export const visitorLogs = pgTable("visitor_logs", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  country: text("country"),
+  city: text("city"),
+  action: text("action").notNull(),
+  page: text("page"),
+  referrer: text("referrer"),
+  deviceType: text("device_type"),
+  browser: text("browser"),
+  os: text("os"),
+  userId: integer("user_id").references(() => users.id),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertVisitorLogSchema = createInsertSchema(visitorLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Type declarations
+export type InsertAssistantPermission = z.infer<typeof insertAssistantPermissionSchema>;
+export type AssistantPermission = typeof assistantPermissions.$inferSelect;
+
+export type InsertVisitorLog = z.infer<typeof insertVisitorLogSchema>;
+export type VisitorLog = typeof visitorLogs.$inferSelect;
+
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 

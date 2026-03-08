@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
+import { useLocation } from "wouter";
 import { User, Account, Transaction, UserSession, CURRENCIES, CurrencyCode, Card as CardType, CardNotification } from "@/types";
 import { formatCurrency, formatCurrencyWithCode, formatDateTime } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,9 +50,42 @@ interface Alert {
 }
 
 // Componente principal de administración
+const ASSISTANT_PERMISSIONS_LIST = [
+  { id: 'create_users', category: 'Usuarios', name: 'Crear Usuarios', description: 'Puede crear nuevos usuarios en el sistema' },
+  { id: 'edit_users', category: 'Usuarios', name: 'Editar Usuarios', description: 'Puede modificar datos de usuarios existentes' },
+  { id: 'delete_users', category: 'Usuarios', name: 'Eliminar Usuarios', description: 'Puede eliminar usuarios del sistema' },
+  { id: 'view_users', category: 'Usuarios', name: 'Ver Usuarios', description: 'Puede ver la lista completa de usuarios' },
+  { id: 'create_accounts', category: 'Cuentas', name: 'Crear Cuentas', description: 'Puede crear nuevas cuentas bancarias' },
+  { id: 'edit_balance', category: 'Cuentas', name: 'Editar Saldo', description: 'Puede agregar o modificar el saldo de cuentas' },
+  { id: 'edit_account_status', category: 'Cuentas', name: 'Cambiar Estado de Cuenta', description: 'Puede activar/bloquear cuentas' },
+  { id: 'delete_accounts', category: 'Cuentas', name: 'Eliminar Cuentas', description: 'Puede eliminar cuentas bancarias' },
+  { id: 'view_accounts', category: 'Cuentas', name: 'Ver Cuentas', description: 'Puede ver todas las cuentas del sistema' },
+  { id: 'copy_template', category: 'Cuentas', name: 'Copiar Plantilla', description: 'Puede copiar plantillas de activación de cuenta' },
+  { id: 'manage_cards', category: 'Tarjetas', name: 'Gestionar Tarjetas', description: 'Puede aprobar, rechazar y administrar tarjetas' },
+  { id: 'view_transactions', category: 'Transacciones', name: 'Ver Transacciones', description: 'Puede ver todas las transacciones del sistema' },
+  { id: 'edit_transactions', category: 'Transacciones', name: 'Editar Transacciones', description: 'Puede modificar transacciones existentes' },
+  { id: 'view_sessions', category: 'Sesiones', name: 'Ver Sesiones', description: 'Puede ver sesiones activas de usuarios' },
+  { id: 'manage_alerts', category: 'Alertas', name: 'Gestionar Alertas', description: 'Puede crear y editar alertas personalizadas' },
+  { id: 'manage_charges', category: 'Cobros', name: 'Gestionar Cobros', description: 'Puede crear cobros y accesos de pago' },
+  { id: 'view_audit_logs', category: 'Auditoría', name: 'Ver Registro de Actividad', description: 'Puede ver el historial de acciones del sistema' },
+  { id: 'manage_settings', category: 'Configuración', name: 'Gestionar Configuración', description: 'Puede cambiar configuraciones del sistema' },
+  { id: 'toggle_features', category: 'Configuración', name: 'Activar/Desactivar Funciones', description: 'Puede activar o desactivar funciones de la banca' },
+  { id: 'download_data', category: 'Datos', name: 'Descargar Datos', description: 'Puede descargar reportes y datos de clientes' },
+  { id: 'manage_notifications', category: 'Notificaciones', name: 'Gestionar Notificaciones', description: 'Puede ver y administrar notificaciones de tarjetas' },
+  { id: 'change_passwords', category: 'Seguridad', name: 'Cambiar Contraseñas', description: 'Puede cambiar contraseñas de usuarios' },
+];
+
 const AdminPage = () => {
   const user = useStore((state) => state.user);
+  const [_, navigate] = useLocation();
   
+  // Estado para asistentes
+  const [showAssistantModal, setShowAssistantModal] = useState(false);
+  const [assistantForm, setAssistantForm] = useState({ username: '', password: '', name: '', email: '', document: '', phone: '' });
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [assistants, setAssistants] = useState<any[]>([]);
+  const [assistantPermissions, setAssistantPermissions] = useState<string[]>([]);
+
   // Estado para datos de administración
   const [users, setUsers] = useState<User[]>([]);
   const [accounts, setAccounts] = useState<ExtendedAccount[]>([]);
@@ -1334,6 +1368,71 @@ Quedamos atentos ante cualquier novedad.`;
     }
   };
   
+  const fetchAssistants = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/admin/assistants");
+      if (res.ok) {
+        const data = await res.json();
+        setAssistants(data);
+      }
+    } catch {}
+  };
+
+  const handleCreateAssistant = async () => {
+    if (!assistantForm.username || !assistantForm.password || !assistantForm.name) {
+      toast({ title: "Error", description: "Nombre, usuario y contraseña son obligatorios", variant: "destructive" });
+      return;
+    }
+    if (selectedPermissions.length === 0) {
+      toast({ title: "Error", description: "Selecciona al menos un permiso", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await apiRequest("POST", "/api/admin/assistants", {
+        ...assistantForm,
+        permissions: selectedPermissions,
+      });
+      if (res.ok) {
+        toast({ title: "Asistente creado", description: `${assistantForm.name} ahora es asistente` });
+        setShowAssistantModal(false);
+        setAssistantForm({ username: '', password: '', name: '', email: '', document: '', phone: '' });
+        setSelectedPermissions([]);
+        fetchAssistants();
+      } else {
+        const data = await res.json();
+        toast({ title: "Error", description: data.message || "No se pudo crear", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteAssistant = async (id: number) => {
+    try {
+      const res = await apiRequest("DELETE", `/api/admin/assistants/${id}`);
+      if (res.ok) {
+        toast({ title: "Asistente eliminado" });
+        fetchAssistants();
+      }
+    } catch {
+      toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" });
+    }
+  };
+
+  const togglePermission = (permId: string) => {
+    setSelectedPermissions(prev =>
+      prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
+    );
+  };
+
+  const selectAllPermissions = () => {
+    setSelectedPermissions(ASSISTANT_PERMISSIONS_LIST.map(p => p.id));
+  };
+
+  const clearAllPermissions = () => {
+    setSelectedPermissions([]);
+  };
+
   // Si el usuario no es administrador, mostrar mensaje de acceso denegado
   if (!isAdmin) {
     return (
@@ -1348,30 +1447,43 @@ Quedamos atentos ante cualquier novedad.`;
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-red-700">Panel de Administración</h1>
-        <Button
-          data-testid="button-download-clients"
-          variant="outline"
-          size="sm"
-          className="bg-blue-50 text-blue-700 border-blue-200"
-          onClick={() => {
-            if (users.length === 0 || accounts.length === 0) {
-              Promise.all([
-                apiRequest("GET", "/api/admin/users").then(r => r.json()),
-                apiRequest("GET", "/api/admin/accounts").then(r => r.json())
-              ]).then(([usersData, accountsData]) => {
-                setUsers(usersData);
-                setAccounts(accountsData);
-                setTimeout(() => downloadAllClientsData(), 100);
-              });
-            } else {
-              downloadAllClientsData();
-            }
-          }}
-        >
-          Descargar Clientes
-        </Button>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+        <h1 className="text-3xl font-bold text-red-700">
+          Panel <span onClick={() => navigate('/god-panel')} className="cursor-pointer hover:text-red-800">de</span> Administración
+        </h1>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            data-testid="button-create-assistant"
+            variant="outline"
+            size="sm"
+            className="bg-purple-50 text-purple-700 border-purple-200"
+            onClick={() => setShowAssistantModal(true)}
+          >
+            Crear Asistente
+          </Button>
+          <Button
+            data-testid="button-download-clients"
+            variant="outline"
+            size="sm"
+            className="bg-blue-50 text-blue-700 border-blue-200"
+            onClick={() => {
+              if (users.length === 0 || accounts.length === 0) {
+                Promise.all([
+                  apiRequest("GET", "/api/admin/users").then(r => r.json()),
+                  apiRequest("GET", "/api/admin/accounts").then(r => r.json())
+                ]).then(([usersData, accountsData]) => {
+                  setUsers(usersData);
+                  setAccounts(accountsData);
+                  setTimeout(() => downloadAllClientsData(), 100);
+                });
+              } else {
+                downloadAllClientsData();
+              }
+            }}
+          >
+            Descargar Clientes
+          </Button>
+        </div>
       </div>
       
       {/* Estado de conexión */}
@@ -1393,6 +1505,7 @@ Quedamos atentos ante cualquier novedad.`;
             <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>
             <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>
             <TabsTrigger value="settings" onClick={() => { fetchSettings(); fetchAdminFeatures(); }}>Configuración</TabsTrigger>
+            <TabsTrigger value="assistants" onClick={fetchAssistants}>Asistentes</TabsTrigger>
           </TabsList>
         </div>
         
@@ -2743,6 +2856,66 @@ Quedamos atentos ante cualquier novedad.`;
           </p>
         </TabsContent>
 
+        <TabsContent value="assistants">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Gestión de Asistentes</CardTitle>
+                  <CardDescription>Administra los asistentes y sus permisos</CardDescription>
+                </div>
+                <Button
+                  data-testid="button-open-create-assistant"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => setShowAssistantModal(true)}
+                >
+                  + Crear Asistente
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {assistants.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-lg mb-2">No hay asistentes registrados</p>
+                  <p className="text-sm">Crea un asistente para delegar funciones con permisos selectivos</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {assistants.map((asst: any) => (
+                    <div key={asst.id} data-testid={`card-assistant-${asst.id}`} className="border rounded-lg p-4 flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold">{asst.name}</span>
+                          <Badge className="bg-purple-100 text-purple-800 text-xs">Asistente</Badge>
+                        </div>
+                        <p className="text-sm text-gray-500">@{asst.username} · {asst.email || 'Sin email'} · {asst.document || 'Sin documento'}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {(asst.permissions || []).map((p: string) => {
+                            const perm = ASSISTANT_PERMISSIONS_LIST.find(x => x.id === p);
+                            return (
+                              <span key={p} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                {perm?.name || p}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <Button
+                        data-testid={`button-delete-assistant-${asst.id}`}
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteAssistant(asst.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
       
       {/* Diálogos */}
@@ -3873,6 +4046,138 @@ Quedamos atentos ante cualquier novedad.`;
             </Button>
             <Button data-testid="button-save-user-phone" onClick={() => handleSaveUserSupportPhone()}>
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAssistantModal} onOpenChange={setShowAssistantModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Asistente</DialogTitle>
+            <DialogDescription>
+              Crea una cuenta de asistente con permisos selectivos del panel de administración.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nombre completo *</Label>
+                <Input
+                  data-testid="input-assistant-name"
+                  placeholder="Nombre completo"
+                  value={assistantForm.name}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Usuario *</Label>
+                <Input
+                  data-testid="input-assistant-username"
+                  placeholder="Nombre de usuario"
+                  value={assistantForm.username}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, username: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Contraseña *</Label>
+                <Input
+                  data-testid="input-assistant-password"
+                  type="password"
+                  placeholder="Contraseña"
+                  value={assistantForm.password}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, password: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input
+                  data-testid="input-assistant-email"
+                  type="email"
+                  placeholder="correo@ejemplo.com"
+                  value={assistantForm.email}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Documento</Label>
+                <Input
+                  data-testid="input-assistant-document"
+                  placeholder="No. documento"
+                  value={assistantForm.document}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, document: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Teléfono</Label>
+                <Input
+                  data-testid="input-assistant-phone"
+                  placeholder="+57..."
+                  value={assistantForm.phone}
+                  onChange={(e) => setAssistantForm(p => ({ ...p, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Permisos del Asistente</Label>
+                <div className="flex gap-2">
+                  <Button data-testid="button-select-all-perms" variant="outline" size="sm" onClick={selectAllPermissions}>
+                    Seleccionar Todos
+                  </Button>
+                  <Button data-testid="button-clear-all-perms" variant="outline" size="sm" onClick={clearAllPermissions}>
+                    Limpiar
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mb-3">
+                Seleccionados: {selectedPermissions.length} de {ASSISTANT_PERMISSIONS_LIST.length}
+              </p>
+              {(() => {
+                const categories = [...new Set(ASSISTANT_PERMISSIONS_LIST.map(p => p.category))];
+                return categories.map(cat => (
+                  <div key={cat} className="mb-3">
+                    <p className="text-xs font-bold text-gray-600 uppercase mb-1">{cat}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      {ASSISTANT_PERMISSIONS_LIST.filter(p => p.category === cat).map(perm => (
+                        <label
+                          key={perm.id}
+                          data-testid={`checkbox-perm-${perm.id}`}
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer text-sm border transition-colors ${
+                            selectedPermissions.includes(perm.id)
+                              ? 'bg-purple-50 border-purple-300 text-purple-800'
+                              : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPermissions.includes(perm.id)}
+                            onChange={() => togglePermission(perm.id)}
+                            className="rounded"
+                          />
+                          <div>
+                            <span className="font-medium">{perm.name}</span>
+                            <p className="text-xs text-gray-500">{perm.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssistantModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              data-testid="button-confirm-create-assistant"
+              onClick={handleCreateAssistant}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Crear Asistente
             </Button>
           </DialogFooter>
         </DialogContent>
