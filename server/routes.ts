@@ -2337,8 +2337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/assistants", isAdmin, async (req: Request, res: Response) => {
     try {
       const { username, password, name, email, document, phone, permissions } = req.body;
-      if (!username || !password || !name || !email || !permissions) {
-        return res.status(400).json({ message: "Faltan datos requeridos" });
+      if (!username || !password || !name || !permissions || !Array.isArray(permissions) || permissions.length === 0) {
+        return res.status(400).json({ message: "Nombre, usuario, contraseña y al menos un permiso son requeridos" });
       }
       const existing = await storage.getUserByUsername(username);
       if (existing) {

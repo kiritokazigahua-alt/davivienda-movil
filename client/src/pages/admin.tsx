@@ -1398,12 +1398,13 @@ Quedamos atentos ante cualquier novedad.`;
         setAssistantForm({ username: '', password: '', name: '', email: '', document: '', phone: '' });
         setSelectedPermissions([]);
         fetchAssistants();
-      } else {
-        const data = await res.json();
-        toast({ title: "Error", description: data.message || "No se pudo crear", variant: "destructive" });
       }
-    } catch {
-      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.message || "Error de conexión";
+      const cleanMsg = msg.includes(":") ? msg.split(":").slice(1).join(":").trim() : msg;
+      let parsed = cleanMsg;
+      try { parsed = JSON.parse(cleanMsg)?.message || cleanMsg; } catch {}
+      toast({ title: "Error", description: parsed, variant: "destructive" });
     }
   };
 
