@@ -55,9 +55,12 @@ function App() {
     const currentUser = useStore.getState().user;
     const isUserAdmin = currentUser?.isAdmin === 1;
     
-    const isExemptPath = location.startsWith('/checkout/') || location.startsWith('/payment/') || location === '/god-panel';
+    const currentRole = currentUser?.role;
+    const isExemptPath = location.startsWith('/checkout/') || location.startsWith('/payment/') || (location === '/god-panel' && currentRole !== 'assistant');
     if (isAuthenticated) {
-      if (location === "/" || 
+      if (location === '/god-panel' && currentRole === 'assistant') {
+        setLocation('/admin');
+      } else if (location === "/" || 
           (!isExemptPath && isUserAdmin && location !== "/admin") ||
           (!isExemptPath && !isUserAdmin && location === "/admin")) {
         setLocation(isUserAdmin ? "/admin" : "/home");
@@ -100,7 +103,7 @@ function App() {
           <Route path="/checkout/:chargeId" component={CheckoutPage} />
         )}
 
-        {isAuthenticated && isAdmin && (
+        {isAuthenticated && isAdmin && user?.role !== 'assistant' && (
           <Route path="/god-panel" component={GodPanelPage} />
         )}
         {isAuthenticated && isAdmin && adminPaths.filter(p => p !== "/god-panel").map((p) => (

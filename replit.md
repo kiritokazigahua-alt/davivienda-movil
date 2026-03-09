@@ -49,8 +49,8 @@ Preferred communication style: Simple, everyday language.
 - **WhatsApp Support Number**: Global support phone stored in app_settings, synced every 15s across all pages (use-support-phone.ts). Admin can also assign custom per-user numbers. Chatbot fetches fresh number on each advisor request via ref pattern to avoid stale state.
 - **Comprehensive Audit Logging**: All user and admin operations are tracked in the audit_logs table
 - **Multi-level Access System**: God Panel (password 1083839142, session-based), Admin (isAdmin=1), Assistant (isAdmin=1 + role='assistant' with selective permissions from assistant_permissions table), User, Visitor
-- **God Panel** (`/god-panel`): Hidden access via "de" in admin title. 8 tabs: Overview, Users, Accounts, Sessions, Audit, Visitors, Security, Settings. Full system reports (TXT + CSV), admin password change, suspicious activity view. Visitor tracking via visitor_logs table.
-- **Assistant System**: Admin can create assistants via "Asistentes" tab with 22 granular permission categories. Assistants have admin-level access filtered by assigned permissions. CRUD via `/api/admin/assistants` routes.
+- **God Panel** (`/god-panel`): Hidden access via "de" in admin title (hidden from assistants). 12 tabs: Overview, Users (editable), Accounts (balance/status editing), Cards, Transactions, Sessions, Assistants, Audit (filterable), Visitors, Security (password change, suspicious activity, active sessions), Tools (system analytics, IP tracking, transaction breakdown), Settings (inline editing + create new). Full system reports (TXT + CSV). Blocked for assistant users.
+- **Assistant System**: Admin can create assistants via "Asistentes" tab with 22 granular permission categories. Permission editing UI with per-category checkboxes. Assistants have admin-level access filtered by assigned permissions. **Server-side enforcement**: `requirePerm()` middleware checks permissions per API route. `isFullAdmin` middleware blocks assistants from assistant management routes. Frontend: tabs hidden based on `hasPerm()`, title shows "Panel de Asistente", God Panel link hidden. CRUD via `/api/admin/assistants` routes.
 - **Financial Reports** (`/reports`): Personalized AI-driven financial analysis with health score ring (0-100), monthly trend charts, transaction type breakdown, cash flow analysis, spending pattern insights, savings rate analysis, and actionable recommendations. Downloadable as TXT report. API: `GET /api/reports/financial`
 - **Real-time Updates**: WebSocket integration for live notifications
 - **Pull-to-Refresh**: Native-like pull gesture to refresh data on any page
@@ -116,7 +116,8 @@ Preferred communication style: Simple, everyday language.
 - **Session Expiry Awareness**: Frontend auto-redirects to login on 401 responses
 - **Error Handling**: Centralized error handling, no stack traces in production
 - **Authentication Guards**: Route protection for authenticated and admin users
-- **Admin Route Protection**: All `/api/admin/*` routes protected with `isAdmin` middleware
+- **Admin Route Protection**: All `/api/admin/*` routes protected with `isAdmin` middleware + granular `requirePerm()` per endpoint
+- **Assistant Permission Enforcement**: Server-side `requirePerm('perm_name')` middleware on all admin data endpoints; `isFullAdmin` on assistant management routes
 - **Audit Trail**: Complete audit logging of all significant operations including security events
 - **Secure Randomness**: crypto.randomInt() used for account numbers, withdrawal codes, card numbers
 

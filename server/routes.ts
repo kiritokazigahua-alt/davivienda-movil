@@ -180,6 +180,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  const requirePerm = (...perms: string[]) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "No autenticado" });
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
+      if (user.isAdmin === 1 && user.role !== 'assistant') return next();
+      if (user.role === 'assistant') {
+        const permRecord = await storage.getAssistantPermissions(userId);
+        const userPerms: string[] = permRecord ? (typeof permRecord.permissions === 'string' ? JSON.parse(permRecord.permissions) : permRecord.permissions || []) : [];
+        const hasAll = perms.every(p => userPerms.includes(p));
+        if (hasAll) return next();
+        return res.status(403).json({ message: `Permiso requerido: ${perms.join(', ')}` });
+      }
+      return res.status(403).json({ message: "No autorizado" });
+    };
+  };
+
+  const isFullAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ message: "No autenticado" });
+    const user = await storage.getUser(userId);
+    if (!user || user.isAdmin !== 1 || user.role === 'assistant') {
+      return res.status(403).json({ message: "Se requiere acceso de administrador completo" });
+    }
+    next();
+  };
+
   const createAuditLog = async (req: Request, action: string, details: string, entityType?: string, entityId?: number, userId?: number) => {
     try {
       await storage.createAuditLog({
@@ -395,6 +423,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
       
+      let permissions: string[] | undefined;
+      if (user.role === 'assistant') {
+        const perms = await storage.getAssistantPermissions(userId);
+        permissions = perms ? JSON.parse(perms.permissions) : [];
+      }
+
       return res.status(200).json({
         id: user.id,
         username: user.username,
@@ -404,6 +438,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: user.phone,
         lastLogin: user.lastLogin,
         isAdmin: user.isAdmin || 0,
+        role: user.role || 'user',
+        permissions,
         customSupportPhone: user.customSupportPhone || null
       });
     } catch (error) {
@@ -954,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API ADMIN ROUTES
-  app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/users", isAdmin, requirePerm('view_users'), async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllUsers();
       res.status(200).json(users);
@@ -964,7 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users", isAdmin, requirePerm('create_users'), async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       
@@ -1001,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/users/:id", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/users/:id", isAdmin, requirePerm('edit_users'), async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const userData = req.body;
@@ -1030,7 +1066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/accounts", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/accounts", isAdmin, requirePerm('view_accounts'), async (req: Request, res: Response) => {
     try {
       const accounts = await storage.getAllAccounts();
       
@@ -1053,7 +1089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/accounts/:id/balance", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/balance", isAdmin, requirePerm('edit_balance'), async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const { amount, message, reference: customReference, transactionName, customDate } = req.body;
@@ -1107,7 +1143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/accounts/:id/status", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/status", isAdmin, requirePerm('edit_account_status'), async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const { status, statusMessage } = req.body;
@@ -1202,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/transactions", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/transactions", isAdmin, requirePerm('view_transactions'), async (req: Request, res: Response) => {
     try {
       const transactions = await storage.getAllTransactions();
       
@@ -1253,7 +1289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/sessions", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/sessions", isAdmin, requirePerm('view_sessions'), async (req: Request, res: Response) => {
     try {
       const sessions = await storage.getAllSessions();
       
@@ -1343,7 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CARD ROUTES (Admin)
-  app.get("/api/admin/cards", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/cards", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cards = await storage.getAllCards();
       
@@ -1614,7 +1650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // ACCOUNT CHARGES ROUTES (Admin)
-  app.get("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/charges", isAdmin, requirePerm('manage_charges'), async (req: Request, res: Response) => {
     try {
       const charges = await storage.getAllAccountCharges();
       const chargesWithInfo = await Promise.all(charges.map(async (charge) => {
@@ -2111,7 +2147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AUDIT LOG ROUTES (Admin)
-  app.get("/api/admin/audit-logs", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/audit-logs", isAdmin, requirePerm('view_audit_logs'), async (req: Request, res: Response) => {
     try {
       const logs = await storage.getAllAuditLogs();
       
@@ -2144,7 +2180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/admin/settings", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/settings", isAdmin, requirePerm('manage_settings'), async (req: Request, res: Response) => {
     try {
       const settings = await storage.getAllSettings();
       res.status(200).json(settings);
@@ -2154,7 +2190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/settings/:key", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/settings/:key", isAdmin, requirePerm('manage_settings'), async (req: Request, res: Response) => {
     try {
       const adminId = req.session.userId!;
       const { value, description } = req.body;
@@ -2334,7 +2370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ==================== ASSISTANT MANAGEMENT ROUTES ====================
 
-  app.post("/api/admin/assistants", isAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/assistants", isAdmin, isFullAdmin, async (req: Request, res: Response) => {
     try {
       const { username, password, name, email, document, phone, permissions } = req.body;
       if (!username || !password || !name || !permissions || !Array.isArray(permissions) || permissions.length === 0) {
@@ -2364,7 +2400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/assistants", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/assistants", isAdmin, isFullAdmin, async (req: Request, res: Response) => {
     try {
       const assistants = await storage.getAllAssistants();
       res.status(200).json(assistants);
@@ -2373,7 +2409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/assistants/:id/permissions", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/assistants/:id/permissions", isAdmin, isFullAdmin, async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const { permissions } = req.body;
@@ -2388,7 +2424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/assistants/:id", isAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/admin/assistants/:id", isAdmin, isFullAdmin, async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const user = await storage.getUser(userId);

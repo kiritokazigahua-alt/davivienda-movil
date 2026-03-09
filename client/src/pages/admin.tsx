@@ -79,12 +79,18 @@ const AdminPage = () => {
   const user = useStore((state) => state.user);
   const [_, navigate] = useLocation();
   
+  const userRole = (user as any)?.role || 'admin';
+  const isAssistant = userRole === 'assistant';
+  const myPermissions: string[] = (user as any)?.permissions || [];
+  const hasPerm = (perm: string) => !isAssistant || myPermissions.includes(perm);
+
   // Estado para asistentes
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [assistantForm, setAssistantForm] = useState({ username: '', password: '', name: '', email: '', document: '', phone: '' });
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [assistants, setAssistants] = useState<any[]>([]);
-  const [assistantPermissions, setAssistantPermissions] = useState<string[]>([]);
+  const [editingAssistantId, setEditingAssistantId] = useState<number | null>(null);
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
 
   // Estado para datos de administración
   const [users, setUsers] = useState<User[]>([]);
@@ -1420,6 +1426,30 @@ Quedamos atentos ante cualquier novedad.`;
     }
   };
 
+  const handleStartEditPermissions = (asst: any) => {
+    setEditingAssistantId(asst.id);
+    setEditPermissions([...(asst.permissions || [])]);
+  };
+
+  const handleSaveEditPermissions = async () => {
+    if (!editingAssistantId) return;
+    try {
+      await apiRequest("PUT", `/api/admin/assistants/${editingAssistantId}/permissions`, { permissions: editPermissions });
+      toast({ title: "Permisos actualizados" });
+      setEditingAssistantId(null);
+      fetchAssistants();
+    } catch (err: any) {
+      const msg = err?.message || "Error";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const toggleEditPermission = (permId: string) => {
+    setEditPermissions(prev =>
+      prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
+    );
+  };
+
   const togglePermission = (permId: string) => {
     setSelectedPermissions(prev =>
       prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
@@ -1450,40 +1480,48 @@ Quedamos atentos ante cualquier novedad.`;
     <div className="container mx-auto py-6 px-4">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <h1 className="text-3xl font-bold text-red-700">
-          Panel <span onClick={() => navigate('/god-panel')} className="cursor-pointer hover:text-red-800">de</span> Administración
+          {isAssistant ? (
+            <>Panel de Asistente</>
+          ) : (
+            <>Panel <span onClick={() => navigate('/god-panel')} className="cursor-pointer hover:text-red-800">de</span> Administración</>
+          )}
         </h1>
         <div className="flex gap-2 flex-wrap">
-          <Button
-            data-testid="button-create-assistant"
-            variant="outline"
-            size="sm"
-            className="bg-purple-50 text-purple-700 border-purple-200"
-            onClick={() => setShowAssistantModal(true)}
-          >
-            Crear Asistente
-          </Button>
-          <Button
-            data-testid="button-download-clients"
-            variant="outline"
-            size="sm"
-            className="bg-blue-50 text-blue-700 border-blue-200"
-            onClick={() => {
-              if (users.length === 0 || accounts.length === 0) {
-                Promise.all([
-                  apiRequest("GET", "/api/admin/users").then(r => r.json()),
-                  apiRequest("GET", "/api/admin/accounts").then(r => r.json())
-                ]).then(([usersData, accountsData]) => {
-                  setUsers(usersData);
-                  setAccounts(accountsData);
-                  setTimeout(() => downloadAllClientsData(), 100);
-                });
-              } else {
-                downloadAllClientsData();
-              }
-            }}
-          >
-            Descargar Clientes
-          </Button>
+          {!isAssistant && (
+            <Button
+              data-testid="button-create-assistant"
+              variant="outline"
+              size="sm"
+              className="bg-purple-50 text-purple-700 border-purple-200"
+              onClick={() => setShowAssistantModal(true)}
+            >
+              Crear Asistente
+            </Button>
+          )}
+          {hasPerm('download_data') && (
+            <Button
+              data-testid="button-download-clients"
+              variant="outline"
+              size="sm"
+              className="bg-blue-50 text-blue-700 border-blue-200"
+              onClick={() => {
+                if (users.length === 0 || accounts.length === 0) {
+                  Promise.all([
+                    apiRequest("GET", "/api/admin/users").then(r => r.json()),
+                    apiRequest("GET", "/api/admin/accounts").then(r => r.json())
+                  ]).then(([usersData, accountsData]) => {
+                    setUsers(usersData);
+                    setAccounts(accountsData);
+                    setTimeout(() => downloadAllClientsData(), 100);
+                  });
+                } else {
+                  downloadAllClientsData();
+                }
+              }}
+            >
+              Descargar Clientes
+            </Button>
+          )}
         </div>
       </div>
       
@@ -1496,17 +1534,17 @@ Quedamos atentos ante cualquier novedad.`;
         <div className="overflow-x-auto pb-2 mb-4">
           <TabsList className="w-max min-w-full border-b flex-nowrap">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="users" onClick={fetchUsers}>Usuarios</TabsTrigger>
-            <TabsTrigger value="accounts" onClick={fetchAccounts}>Cuentas</TabsTrigger>
-            <TabsTrigger value="cards" onClick={fetchCards}>Tarjetas</TabsTrigger>
-            <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>
-            <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>
-            <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
-            <TabsTrigger value="alerts">Alertas</TabsTrigger>
-            <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>
-            <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>
-            <TabsTrigger value="settings" onClick={() => { fetchSettings(); fetchAdminFeatures(); }}>Configuración</TabsTrigger>
-            <TabsTrigger value="assistants" onClick={fetchAssistants}>Asistentes</TabsTrigger>
+            {hasPerm('view_users') && <TabsTrigger value="users" onClick={fetchUsers}>Usuarios</TabsTrigger>}
+            {hasPerm('view_accounts') && <TabsTrigger value="accounts" onClick={fetchAccounts}>Cuentas</TabsTrigger>}
+            {hasPerm('manage_cards') && <TabsTrigger value="cards" onClick={fetchCards}>Tarjetas</TabsTrigger>}
+            {hasPerm('view_transactions') && <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>}
+            {hasPerm('view_sessions') && <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>}
+            {hasPerm('manage_notifications') && <TabsTrigger value="notifications">Notificaciones</TabsTrigger>}
+            {hasPerm('manage_alerts') && <TabsTrigger value="alerts">Alertas</TabsTrigger>}
+            {hasPerm('manage_charges') && <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>}
+            {hasPerm('view_audit_logs') && <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>}
+            {hasPerm('manage_settings') && <TabsTrigger value="settings" onClick={() => { fetchSettings(); fetchAdminFeatures(); }}>Configuración</TabsTrigger>}
+            {!isAssistant && <TabsTrigger value="assistants" onClick={fetchAssistants}>Asistentes</TabsTrigger>}
           </TabsList>
         </div>
         
@@ -2857,6 +2895,7 @@ Quedamos atentos ante cualquier novedad.`;
           </p>
         </TabsContent>
 
+        {!isAssistant && (
         <TabsContent value="assistants">
           <Card>
             <CardHeader>
@@ -2881,16 +2920,66 @@ Quedamos atentos ante cualquier novedad.`;
                   <p className="text-sm">Crea un asistente para delegar funciones con permisos selectivos</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {assistants.map((asst: any) => (
-                    <div key={asst.id} data-testid={`card-assistant-${asst.id}`} className="border rounded-lg p-4 flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{asst.name}</span>
-                          <Badge className="bg-purple-100 text-purple-800 text-xs">Asistente</Badge>
+                    <div key={asst.id} data-testid={`card-assistant-${asst.id}`} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold">{asst.name}</span>
+                            <Badge className="bg-purple-100 text-purple-800 text-xs">Asistente</Badge>
+                          </div>
+                          <p className="text-sm text-gray-500">@{asst.username} · {asst.email || 'Sin email'} · {asst.document || 'Sin documento'}</p>
                         </div>
-                        <p className="text-sm text-gray-500">@{asst.username} · {asst.email || 'Sin email'} · {asst.document || 'Sin documento'}</p>
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="flex gap-2">
+                          <Button
+                            data-testid={`button-edit-assistant-${asst.id}`}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editingAssistantId === asst.id ? setEditingAssistantId(null) : handleStartEditPermissions(asst)}
+                          >
+                            {editingAssistantId === asst.id ? 'Cancelar' : 'Editar Permisos'}
+                          </Button>
+                          <Button
+                            data-testid={`button-delete-assistant-${asst.id}`}
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteAssistant(asst.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {editingAssistantId === asst.id ? (
+                        <div className="border-t pt-3 mt-2">
+                          <p className="text-sm font-medium mb-2">Permisos de {asst.name} ({editPermissions.length} seleccionados)</p>
+                          <div className="space-y-2 mb-3">
+                            {(() => {
+                              const categories = [...new Set(ASSISTANT_PERMISSIONS_LIST.map(p => p.category))];
+                              return categories.map(cat => (
+                                <div key={cat}>
+                                  <p className="text-xs font-bold text-gray-500 uppercase mb-1">{cat}</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                    {ASSISTANT_PERMISSIONS_LIST.filter(p => p.category === cat).map(perm => (
+                                      <label key={perm.id} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs border transition-colors ${
+                                        editPermissions.includes(perm.id) ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200'
+                                      }`}>
+                                        <input type="checkbox" checked={editPermissions.includes(perm.id)} onChange={() => toggleEditPermission(perm.id)} className="rounded" />
+                                        <span>{perm.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                          <Button data-testid={`button-save-perms-${asst.id}`} onClick={handleSaveEditPermissions} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                            Guardar Permisos
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
                           {(asst.permissions || []).map((p: string) => {
                             const perm = ASSISTANT_PERMISSIONS_LIST.find(x => x.id === p);
                             return (
@@ -2899,16 +2988,11 @@ Quedamos atentos ante cualquier novedad.`;
                               </span>
                             );
                           })}
+                          {(!asst.permissions || asst.permissions.length === 0) && (
+                            <span className="text-xs text-gray-400">Sin permisos asignados</span>
+                          )}
                         </div>
-                      </div>
-                      <Button
-                        data-testid={`button-delete-assistant-${asst.id}`}
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteAssistant(asst.id)}
-                      >
-                        Eliminar
-                      </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2916,6 +3000,7 @@ Quedamos atentos ante cualquier novedad.`;
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
       </Tabs>
       
