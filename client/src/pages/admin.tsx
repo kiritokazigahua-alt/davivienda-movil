@@ -50,30 +50,97 @@ interface Alert {
 }
 
 // Componente principal de administración
-const ASSISTANT_PERMISSIONS_LIST = [
-  { id: 'create_users', category: 'Usuarios', name: 'Crear Usuarios', description: 'Puede crear nuevos usuarios en el sistema' },
-  { id: 'edit_users', category: 'Usuarios', name: 'Editar Usuarios', description: 'Puede modificar datos de usuarios existentes' },
-  { id: 'delete_users', category: 'Usuarios', name: 'Eliminar Usuarios', description: 'Puede eliminar usuarios del sistema' },
-  { id: 'view_users', category: 'Usuarios', name: 'Ver Usuarios', description: 'Puede ver la lista completa de usuarios' },
-  { id: 'create_accounts', category: 'Cuentas', name: 'Crear Cuentas', description: 'Puede crear nuevas cuentas bancarias' },
-  { id: 'edit_balance', category: 'Cuentas', name: 'Editar Saldo', description: 'Puede agregar o modificar el saldo de cuentas' },
-  { id: 'edit_account_status', category: 'Cuentas', name: 'Cambiar Estado de Cuenta', description: 'Puede activar/bloquear cuentas' },
-  { id: 'delete_accounts', category: 'Cuentas', name: 'Eliminar Cuentas', description: 'Puede eliminar cuentas bancarias' },
-  { id: 'view_accounts', category: 'Cuentas', name: 'Ver Cuentas', description: 'Puede ver todas las cuentas del sistema' },
-  { id: 'copy_template', category: 'Cuentas', name: 'Copiar Plantilla', description: 'Puede copiar plantillas de activación de cuenta' },
-  { id: 'manage_cards', category: 'Tarjetas', name: 'Gestionar Tarjetas', description: 'Puede aprobar, rechazar y administrar tarjetas' },
-  { id: 'view_transactions', category: 'Transacciones', name: 'Ver Transacciones', description: 'Puede ver todas las transacciones del sistema' },
-  { id: 'edit_transactions', category: 'Transacciones', name: 'Editar Transacciones', description: 'Puede modificar transacciones existentes' },
-  { id: 'view_sessions', category: 'Sesiones', name: 'Ver Sesiones', description: 'Puede ver sesiones activas de usuarios' },
-  { id: 'manage_alerts', category: 'Alertas', name: 'Gestionar Alertas', description: 'Puede crear y editar alertas personalizadas' },
-  { id: 'manage_charges', category: 'Cobros', name: 'Gestionar Cobros', description: 'Puede crear cobros y accesos de pago' },
-  { id: 'view_audit_logs', category: 'Auditoría', name: 'Ver Registro de Actividad', description: 'Puede ver el historial de acciones del sistema' },
-  { id: 'manage_settings', category: 'Configuración', name: 'Gestionar Configuración', description: 'Puede cambiar configuraciones del sistema' },
-  { id: 'toggle_features', category: 'Configuración', name: 'Activar/Desactivar Funciones', description: 'Puede activar o desactivar funciones de la banca' },
-  { id: 'download_data', category: 'Datos', name: 'Descargar Datos', description: 'Puede descargar reportes y datos de clientes' },
-  { id: 'manage_notifications', category: 'Notificaciones', name: 'Gestionar Notificaciones', description: 'Puede ver y administrar notificaciones de tarjetas' },
-  { id: 'change_passwords', category: 'Seguridad', name: 'Cambiar Contraseñas', description: 'Puede cambiar contraseñas de usuarios' },
+const ASSISTANT_PERMISSIONS_SECTIONS = [
+  {
+    section: 'Acciones sobre Usuarios',
+    icon: '👤',
+    description: 'Controlan lo que el asistente puede hacer con los clientes del banco',
+    color: 'border-blue-300 bg-blue-50',
+    headerColor: 'text-blue-800 bg-blue-100',
+    permissions: [
+      { id: 'view_users', name: 'Ver Usuarios', description: 'Puede ver la lista de todos los clientes registrados', consequence: 'Solo lectura, no modifica nada' },
+      { id: 'create_users', name: 'Crear Usuarios', description: 'Puede registrar nuevos clientes en el sistema', consequence: 'El usuario creado tendrá acceso a la banca' },
+      { id: 'edit_users', name: 'Editar Usuarios', description: 'Puede modificar nombre, email, teléfono, documento de clientes', consequence: 'Cambia datos personales del cliente directamente' },
+      { id: 'change_passwords', name: 'Cambiar Contraseñas', description: 'Puede restablecer la contraseña de cualquier usuario', consequence: 'El usuario perderá su contraseña actual' },
+      { id: 'delete_users', name: 'Eliminar Usuarios', description: 'Puede borrar usuarios del sistema permanentemente', consequence: 'IRREVERSIBLE - El usuario y sus datos se eliminan' },
+    ]
+  },
+  {
+    section: 'Acciones sobre Cuentas Bancarias',
+    icon: '🏦',
+    description: 'Controlan lo que el asistente puede hacer con las cuentas y saldos',
+    color: 'border-green-300 bg-green-50',
+    headerColor: 'text-green-800 bg-green-100',
+    permissions: [
+      { id: 'view_accounts', name: 'Ver Cuentas', description: 'Puede ver todas las cuentas bancarias y sus saldos', consequence: 'Solo lectura, no modifica nada' },
+      { id: 'create_accounts', name: 'Crear Cuentas', description: 'Puede abrir nuevas cuentas bancarias para usuarios', consequence: 'Genera una nueva cuenta con número único' },
+      { id: 'edit_balance', name: 'Editar Saldo', description: 'Puede agregar o quitar dinero del saldo de cualquier cuenta', consequence: 'MODIFICA EL DINERO - Afecta directamente el saldo del cliente' },
+      { id: 'edit_account_status', name: 'Cambiar Estado de Cuenta', description: 'Puede activar, bloquear o poner en pendiente una cuenta', consequence: 'Si bloquea una cuenta, el usuario no podrá operar' },
+      { id: 'copy_template', name: 'Copiar Plantilla', description: 'Puede copiar la plantilla de activación de cuenta al portapapeles', consequence: 'Solo copia texto, no modifica la cuenta' },
+      { id: 'delete_accounts', name: 'Eliminar Cuentas', description: 'Puede borrar cuentas bancarias permanentemente', consequence: 'IRREVERSIBLE - La cuenta y su historial se eliminan' },
+    ]
+  },
+  {
+    section: 'Acciones sobre Tarjetas',
+    icon: '💳',
+    description: 'Controlan la gestión de tarjetas de débito y crédito',
+    color: 'border-orange-300 bg-orange-50',
+    headerColor: 'text-orange-800 bg-orange-100',
+    permissions: [
+      { id: 'manage_cards', name: 'Gestionar Tarjetas', description: 'Puede aprobar, rechazar, crear y modificar tarjetas', consequence: 'Controla el acceso de tarjetas de los usuarios' },
+    ]
+  },
+  {
+    section: 'Acciones sobre Transacciones',
+    icon: '💰',
+    description: 'Controlan la visibilidad y edición de movimientos financieros',
+    color: 'border-yellow-300 bg-yellow-50',
+    headerColor: 'text-yellow-800 bg-yellow-100',
+    permissions: [
+      { id: 'view_transactions', name: 'Ver Transacciones', description: 'Puede ver todas las transacciones de todos los usuarios', consequence: 'Solo lectura, ve montos y detalles de todas las operaciones' },
+      { id: 'edit_transactions', name: 'Editar Transacciones', description: 'Puede modificar transacciones existentes', consequence: 'Cambia el historial de movimientos del usuario' },
+    ]
+  },
+  {
+    section: 'Cobros y Pagos',
+    icon: '📋',
+    description: 'Controlan la creación de cobros y accesos de pago para los usuarios',
+    color: 'border-purple-300 bg-purple-50',
+    headerColor: 'text-purple-800 bg-purple-100',
+    permissions: [
+      { id: 'manage_charges', name: 'Gestionar Cobros', description: 'Puede crear multas, cobros, promociones y accesos de pago', consequence: 'Los cobros pueden afectar automáticamente el saldo del usuario' },
+    ]
+  },
+  {
+    section: 'Monitoreo del Sistema',
+    icon: '📊',
+    description: 'Controlan el acceso a información de monitoreo y seguridad',
+    color: 'border-cyan-300 bg-cyan-50',
+    headerColor: 'text-cyan-800 bg-cyan-100',
+    permissions: [
+      { id: 'view_sessions', name: 'Ver Sesiones', description: 'Puede ver quién está conectado, IPs, dispositivos', consequence: 'Solo lectura, información sensible de seguridad' },
+      { id: 'view_audit_logs', name: 'Ver Registro de Actividad', description: 'Puede ver el historial completo de acciones en el sistema', consequence: 'Solo lectura, ve todas las operaciones de admin y usuarios' },
+      { id: 'manage_notifications', name: 'Ver Notificaciones', description: 'Puede ver notificaciones de tarjetas y alertas del sistema', consequence: 'Solo lectura de notificaciones' },
+      { id: 'manage_alerts', name: 'Gestionar Alertas', description: 'Puede crear y editar alertas personalizadas para usuarios', consequence: 'Los usuarios verán las alertas en su banca' },
+    ]
+  },
+  {
+    section: 'Configuración del Sistema',
+    icon: '⚙️',
+    description: 'Controlan cambios en la configuración global de la plataforma',
+    color: 'border-red-300 bg-red-50',
+    headerColor: 'text-red-800 bg-red-100',
+    permissions: [
+      { id: 'manage_settings', name: 'Gestionar Configuración', description: 'Puede cambiar configuraciones globales (teléfono soporte, marca, etc.)', consequence: 'Cambia ajustes que afectan a TODOS los usuarios' },
+      { id: 'toggle_features', name: 'Activar/Desactivar Funciones', description: 'Puede activar o desactivar funciones de la banca (PWA, certificados, etc.)', consequence: 'Habilita o deshabilita funciones para TODOS los usuarios' },
+      { id: 'download_data', name: 'Descargar Datos', description: 'Puede descargar reportes CSV y datos de clientes', consequence: 'Accede a datos sensibles de todos los clientes' },
+    ]
+  },
 ];
+
+const ASSISTANT_PERMISSIONS_LIST = ASSISTANT_PERMISSIONS_SECTIONS.flatMap(s =>
+  s.permissions.map(p => ({ ...p, category: s.section }))
+);
 
 const AdminPage = () => {
   const user = useStore((state) => state.user);
@@ -2954,25 +3021,37 @@ Quedamos atentos ante cualquier novedad.`;
                       {editingAssistantId === asst.id ? (
                         <div className="border-t pt-3 mt-2">
                           <p className="text-sm font-medium mb-2">Permisos de {asst.name} ({editPermissions.length} seleccionados)</p>
-                          <div className="space-y-2 mb-3">
-                            {(() => {
-                              const categories = [...new Set(ASSISTANT_PERMISSIONS_LIST.map(p => p.category))];
-                              return categories.map(cat => (
-                                <div key={cat}>
-                                  <p className="text-xs font-bold text-gray-500 uppercase mb-1">{cat}</p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                    {ASSISTANT_PERMISSIONS_LIST.filter(p => p.category === cat).map(perm => (
-                                      <label key={perm.id} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs border transition-colors ${
-                                        editPermissions.includes(perm.id) ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200'
+                          <div className="space-y-3 mb-3">
+                            {ASSISTANT_PERMISSIONS_SECTIONS.map(section => {
+                              const sectionPermIds = section.permissions.map(p => p.id);
+                              const allSelected = sectionPermIds.every(id => editPermissions.includes(id));
+                              return (
+                                <div key={section.section} className={`border rounded-lg overflow-hidden ${section.color}`}>
+                                  <div className={`px-3 py-1.5 flex items-center justify-between ${section.headerColor}`}>
+                                    <span className="text-xs font-semibold flex items-center gap-1">{section.icon} {section.section}</span>
+                                    <button type="button" className="text-xs px-2 py-0.5 rounded border bg-white/50" onClick={() => {
+                                      if (allSelected) setEditPermissions(prev => prev.filter(id => !sectionPermIds.includes(id)));
+                                      else setEditPermissions(prev => [...new Set([...prev, ...sectionPermIds])]);
+                                    }}>
+                                      {allSelected ? 'Quitar' : 'Todos'}
+                                    </button>
+                                  </div>
+                                  <div className="p-1.5 space-y-1">
+                                    {section.permissions.map(perm => (
+                                      <label key={perm.id} className={`flex items-start gap-2 p-1.5 rounded cursor-pointer text-xs border transition-colors ${
+                                        editPermissions.includes(perm.id) ? 'bg-white border-purple-300 shadow-sm' : 'bg-white/60 border-transparent'
                                       }`}>
-                                        <input type="checkbox" checked={editPermissions.includes(perm.id)} onChange={() => toggleEditPermission(perm.id)} className="rounded" />
-                                        <span>{perm.name}</span>
+                                        <input type="checkbox" checked={editPermissions.includes(perm.id)} onChange={() => toggleEditPermission(perm.id)} className="rounded mt-0.5" />
+                                        <div>
+                                          <span className="font-medium">{perm.name}</span>
+                                          <p className={`text-xs ${perm.consequence.includes('IRREVERSIBLE') || perm.consequence.includes('MODIFICA') ? 'text-red-500' : 'text-gray-400'}`}>→ {perm.consequence}</p>
+                                        </div>
                                       </label>
                                     ))}
                                   </div>
                                 </div>
-                              ));
-                            })()}
+                              );
+                            })}
                           </div>
                           <Button data-testid={`button-save-perms-${asst.id}`} onClick={handleSaveEditPermissions} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
                             Guardar Permisos
@@ -4206,52 +4285,85 @@ Quedamos atentos ante cualquier novedad.`;
             </div>
 
             <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <Label className="text-base font-semibold">Permisos del Asistente</Label>
                 <div className="flex gap-2">
                   <Button data-testid="button-select-all-perms" variant="outline" size="sm" onClick={selectAllPermissions}>
-                    Seleccionar Todos
+                    Todos
                   </Button>
                   <Button data-testid="button-clear-all-perms" variant="outline" size="sm" onClick={clearAllPermissions}>
-                    Limpiar
+                    Ninguno
                   </Button>
                 </div>
               </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                <p className="text-yellow-800 text-xs">
+                  El asistente <strong>NO</strong> tiene acceso al Panel Dios, <strong>NO</strong> puede crear otros asistentes, y <strong>NO</strong> puede otorgarse permisos. Solo tendrá acceso a las funciones que usted seleccione a continuación.
+                </p>
+              </div>
               <p className="text-sm text-gray-500 mb-3">
-                Seleccionados: {selectedPermissions.length} de {ASSISTANT_PERMISSIONS_LIST.length}
+                {selectedPermissions.length} de {ASSISTANT_PERMISSIONS_LIST.length} permisos seleccionados
               </p>
-              {(() => {
-                const categories = [...new Set(ASSISTANT_PERMISSIONS_LIST.map(p => p.category))];
-                return categories.map(cat => (
-                  <div key={cat} className="mb-3">
-                    <p className="text-xs font-bold text-gray-600 uppercase mb-1">{cat}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                      {ASSISTANT_PERMISSIONS_LIST.filter(p => p.category === cat).map(perm => (
-                        <label
-                          key={perm.id}
-                          data-testid={`checkbox-perm-${perm.id}`}
-                          className={`flex items-center gap-2 p-2 rounded cursor-pointer text-sm border transition-colors ${
-                            selectedPermissions.includes(perm.id)
-                              ? 'bg-purple-50 border-purple-300 text-purple-800'
-                              : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPermissions.includes(perm.id)}
-                            onChange={() => togglePermission(perm.id)}
-                            className="rounded"
-                          />
+              <div className="space-y-4">
+                {ASSISTANT_PERMISSIONS_SECTIONS.map(section => {
+                  const sectionPermIds = section.permissions.map(p => p.id);
+                  const allSelected = sectionPermIds.every(id => selectedPermissions.includes(id));
+                  const someSelected = sectionPermIds.some(id => selectedPermissions.includes(id));
+                  return (
+                    <div key={section.section} className={`border rounded-lg overflow-hidden ${section.color}`}>
+                      <div className={`px-3 py-2 flex items-center justify-between ${section.headerColor}`}>
+                        <div className="flex items-center gap-2">
+                          <span>{section.icon}</span>
                           <div>
-                            <span className="font-medium">{perm.name}</span>
-                            <p className="text-xs text-gray-500">{perm.description}</p>
+                            <p className="font-semibold text-sm">{section.section}</p>
+                            <p className="text-xs opacity-80">{section.description}</p>
                           </div>
-                        </label>
-                      ))}
+                        </div>
+                        <button
+                          type="button"
+                          className={`text-xs px-2 py-1 rounded border ${allSelected ? 'bg-white border-gray-300' : 'bg-white/50 border-gray-200'}`}
+                          onClick={() => {
+                            if (allSelected) {
+                              setSelectedPermissions(prev => prev.filter(id => !sectionPermIds.includes(id)));
+                            } else {
+                              setSelectedPermissions(prev => [...new Set([...prev, ...sectionPermIds])]);
+                            }
+                          }}
+                        >
+                          {allSelected ? 'Quitar todos' : 'Seleccionar sección'}
+                        </button>
+                      </div>
+                      <div className="p-2 space-y-1">
+                        {section.permissions.map(perm => (
+                          <label
+                            key={perm.id}
+                            data-testid={`checkbox-perm-${perm.id}`}
+                            className={`flex items-start gap-2 p-2 rounded cursor-pointer text-sm border transition-colors ${
+                              selectedPermissions.includes(perm.id)
+                                ? 'bg-white border-purple-300 shadow-sm'
+                                : 'bg-white/60 border-transparent hover:bg-white'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPermissions.includes(perm.id)}
+                              onChange={() => togglePermission(perm.id)}
+                              className="rounded mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <span className="font-medium">{perm.name}</span>
+                              <p className="text-xs text-gray-600">{perm.description}</p>
+                              <p className={`text-xs mt-0.5 ${perm.consequence.includes('IRREVERSIBLE') || perm.consequence.includes('MODIFICA') ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                → {perm.consequence}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ));
-              })()}
+                  );
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter>

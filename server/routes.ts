@@ -1176,7 +1176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ruta para actualizar datos generales de una cuenta
-  app.put("/api/admin/accounts/:id/update", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/accounts/:id/update", isAdmin, requirePerm('edit_users'), async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       const accountData = req.body;
@@ -1205,7 +1205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ruta para eliminar una cuenta
-  app.delete("/api/admin/accounts/:id", isAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/admin/accounts/:id", isAdmin, requirePerm('delete_accounts'), async (req: Request, res: Response) => {
     try {
       const accountId = parseInt(req.params.id);
       
@@ -1260,7 +1260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Ruta para actualizar una transacción
-  app.put("/api/admin/transactions/:id", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/transactions/:id", isAdmin, requirePerm('edit_transactions'), async (req: Request, res: Response) => {
     try {
       const transactionId = parseInt(req.params.id);
       const transactionData = req.body;
@@ -1309,7 +1309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/statistics", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/statistics", isAdmin, requirePerm('view_users'), async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllUsers();
       const accounts = await storage.getAllAccounts();
@@ -1400,7 +1400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/admin/cards/pending", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/cards/pending", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cards = await storage.getPendingCards();
       
@@ -1421,7 +1421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/approve", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/approve", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const adminId = req.session.userId || 1;
@@ -1449,7 +1449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/reject", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/reject", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/status", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/status", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { status } = req.body;
@@ -1513,7 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/balance", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/balance", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { balance } = req.body;
@@ -1534,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/admin/cards/:id/balance-status", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id/balance-status", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { balanceStatus } = req.body;
@@ -1570,7 +1570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/admin/card-notifications", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/card-notifications", isAdmin, requirePerm('manage_notifications'), async (req: Request, res: Response) => {
     try {
       const notifications = await storage.getAllCardNotifications();
       res.status(200).json(notifications);
@@ -1581,7 +1581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin create card directly for a user
-  app.post("/api/admin/cards", isAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/cards", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const adminId = req.session.userId!;
       const { userId, cardNumber, cardType, cardBrand, expirationDate, cvv, status, balance, balanceStatus } = req.body;
@@ -1622,7 +1622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin edit card
-  app.put("/api/admin/cards/:id", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/cards/:id", isAdmin, requirePerm('manage_cards'), async (req: Request, res: Response) => {
     try {
       const cardId = parseInt(req.params.id);
       const { cardNumber, cardType, cardBrand, expirationDate, cvv, status, balance, balanceStatus } = req.body;
@@ -1665,7 +1665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/charges", isAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/charges", isAdmin, requirePerm('manage_charges'), async (req: Request, res: Response) => {
     try {
       const adminId = req.session.userId!;
       const { accountId, type, reason, title, description, amount, currency, interestRate, discountPercent, scheduledDate, expiresAt, status, notifyUser, applyToBalance, requireStripePayment, customPaymentLink } = req.body;
@@ -1822,7 +1822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/charges/:id/status", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/charges/:id/status", isAdmin, requirePerm('manage_charges'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
@@ -1854,7 +1854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/charges/:id", isAdmin, async (req: Request, res: Response) => {
+  app.delete("/api/admin/charges/:id", isAdmin, requirePerm('manage_charges'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteAccountCharge(id);
@@ -2077,7 +2077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin assign custom support phone to a user
-  app.put("/api/admin/users/:id/support-phone", isAdmin, async (req: Request, res: Response) => {
+  app.put("/api/admin/users/:id/support-phone", isAdmin, requirePerm('edit_users'), async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const { customSupportPhone } = req.body;
