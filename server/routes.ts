@@ -1116,7 +1116,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactionDescription = transactionName || message || (amount > 0 ? "Ajuste de saldo positivo" : "Ajuste de saldo negativo");
       const reference = customReference || `ADJ-${Date.now().toString().slice(-6)}`;
       
-      const transactionDate = customDate ? new Date(customDate) : new Date();
+      let transactionDate = new Date();
+      if (customDate && String(customDate).trim()) {
+        const parsed = new Date(String(customDate));
+        if (!isNaN(parsed.getTime())) {
+          transactionDate = parsed;
+        }
+      }
       
       await storage.createTransaction({
         accountId,

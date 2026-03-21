@@ -297,6 +297,10 @@ const AdminPage = () => {
     phone: ""
   });
   
+  const [templatePasswordInput, setTemplatePasswordInput] = useState("");
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [templateAccount, setTemplateAccount] = useState<ExtendedAccount | null>(null);
+
   const [balanceData, setBalanceData] = useState({
     accountId: 0,
     accountInfo: "",
@@ -643,7 +647,16 @@ const AdminPage = () => {
     }
   };
 
-  const copyAccountTemplate = (account: ExtendedAccount) => {
+  const openTemplateDialog = (account: ExtendedAccount) => {
+    setTemplateAccount(account);
+    setTemplatePasswordInput("");
+    setShowTemplateDialog(true);
+  };
+
+  const copyAccountTemplate = () => {
+    const account = templateAccount;
+    if (!account) return;
+    const pwd = templatePasswordInput.trim() || '(Asignada por el administrador)';
     const appUrl = window.location.origin;
     const formattedAccountNumber = account.accountNumber.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
     const balanceFormatted = formatCurrencyWithCode(account.balance, (account.currency as CurrencyCode) || 'COP');
@@ -662,9 +675,9 @@ por medio de este mensaje se realiza la entrega de los datos correspondientes a 
 🪪 *Documento (DNI):* ${account.userDocument || 'N/A'}
 📧 *Correo electrónico:* ${account.userEmail || 'N/A'}
 *🔐 Datos de acceso* *Usuario*:${account.userUsername || 'N/A'} 
-*Contraseña*: 1010
+*Contraseña*: ${pwd}
 *🔗 Link de acceso Davivienda:*
-[https://davivienda-virtual.replit.app]
+[${appUrl}]
 Este enlace le permitirá ingresar a su cuenta y realizar la activación correspondiente.
 Quedamos atentos ante cualquier novedad.`;
 
@@ -685,6 +698,7 @@ Quedamos atentos ante cualquier novedad.`;
         description: `Plantilla de ${account.userName} copiada al portapapeles`,
       });
     });
+    setShowTemplateDialog(false);
   };
 
   const downloadAllClientsData = () => {
@@ -1926,7 +1940,7 @@ Quedamos atentos ante cualquier novedad.`;
                               size="sm"
                               data-testid={`button-copy-template-${account.id}`}
                               className="bg-purple-50 text-purple-600 hover:bg-purple-100"
-                              onClick={() => copyAccountTemplate(account)}
+                              onClick={() => openTemplateDialog(account)}
                             >
                               Copiar Plantilla
                             </Button>
@@ -3398,6 +3412,41 @@ Quedamos atentos ante cualquier novedad.`;
         </DialogContent>
       </Dialog>
       
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Copiar Plantilla de Cuenta</DialogTitle>
+            <DialogDescription>
+              Ingrese la contraseña del usuario para incluirla en la plantilla. Si lo deja vacío, se mostrará un texto genérico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="templatePwd" className="text-right">Contraseña</Label>
+              <Input
+                id="templatePwd"
+                data-testid="input-template-password"
+                type="text"
+                className="col-span-3"
+                placeholder="Contraseña del usuario"
+                value={templatePasswordInput}
+                onChange={(e) => setTemplatePasswordInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') copyAccountTemplate(); }}
+              />
+            </div>
+            {templateAccount && (
+              <p className="text-xs text-gray-500 text-center">
+                Cuenta de: <strong>{templateAccount.userName}</strong> — {templateAccount.accountNumber}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>Cancelar</Button>
+            <Button onClick={copyAccountTemplate} data-testid="button-confirm-copy-template">Copiar Plantilla</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Diálogo para editar los datos de la cuenta */}
       <Dialog open={isEditAccountDialogOpen} onOpenChange={setIsEditAccountDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
