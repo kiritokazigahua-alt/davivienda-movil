@@ -12,6 +12,7 @@ import ProfilePage from "@/pages/profile";
 import RecargasPage from "@/pages/recargas";
 import RetirarPage from "@/pages/retirar";
 import CertificadosPage from "@/pages/certificados";
+import DocumentosPage from "@/pages/documentos";
 import QrPage from "@/pages/qr";
 import QrPaymentPage from "@/pages/qr-payment";
 import AdminPage from "@/pages/admin";
@@ -43,6 +44,7 @@ const userRoutes: { path: string; component: ComponentType }[] = [
   { path: "/qr-payment", component: QrPaymentPage },
   { path: "/cards", component: CardsPage },
   { path: "/reports", component: ReportsPage },
+  { path: "/documentos", component: DocumentosPage },
 ];
 
 const adminPaths = ["/admin", "/god-panel", ...userRoutes.map(r => r.path)];

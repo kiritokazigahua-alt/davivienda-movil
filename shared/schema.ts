@@ -65,6 +65,27 @@ export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
 });
 
+// User Documents Schema
+export const userDocuments = pgTable("user_documents", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // cedula, comprobante, apelacion, inscripcion, otro
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  data: text("data").notNull(), // base64
+  description: text("description"),
+  status: text("status").notNull().default("pendiente"), // pendiente, revisado, aprobado, rechazado
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertUserDocumentSchema = createInsertSchema(userDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertUserDocument = z.infer<typeof insertUserDocumentSchema>;
+export type UserDocument = typeof userDocuments.$inferSelect;
+
 // Beneficiary Schema
 export const beneficiaries = pgTable("beneficiaries", {
   id: serial("id").primaryKey(),

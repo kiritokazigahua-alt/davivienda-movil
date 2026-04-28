@@ -166,6 +166,12 @@ const AdminPage = () => {
   const [sessions, setSessions] = useState<ExtendedUserSession[]>([]);
   const [adminContacts, setAdminContacts] = useState<any[]>([]);
   const [contactSearch, setContactSearch] = useState("");
+  const [adminDocuments, setAdminDocuments] = useState<any[]>([]);
+  const [docSearch, setDocSearch] = useState("");
+  const [docViewData, setDocViewData] = useState<{src: string; filename: string} | null>(null);
+  const [docReviewId, setDocReviewId] = useState<number | null>(null);
+  const [docReviewNote, setDocReviewNote] = useState("");
+  const [docReviewStatus, setDocReviewStatus] = useState("aprobado");
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
@@ -542,6 +548,50 @@ const AdminPage = () => {
     }
   };
   
+  const fetchAdminDocuments = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/admin/documents");
+      const data = await res.json();
+      setAdminDocuments(Array.isArray(data) ? data : []);
+    } catch {
+      toast({ title: "Error cargando documentos", variant: "destructive" });
+    }
+  };
+
+  const handleDocView = async (docId: number, mimeType: string, filename: string) => {
+    try {
+      const res = await apiRequest("GET", `/api/admin/documents/${docId}/data`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDocViewData({ src: `data:${data.mimeType};base64,${data.data}`, filename: data.filename });
+    } catch {
+      toast({ title: "Error al cargar imagen", variant: "destructive" });
+    }
+  };
+
+  const handleDocStatus = async (docId: number, status: string, note: string) => {
+    try {
+      const res = await apiRequest("PATCH", `/api/admin/documents/${docId}/status`, { status, adminNote: note });
+      if (!res.ok) throw new Error();
+      setAdminDocuments(prev => prev.map(d => d.id === docId ? { ...d, status, adminNote: note } : d));
+      toast({ title: `Documento marcado como "${status}"` });
+      setDocReviewId(null);
+      setDocReviewNote("");
+    } catch {
+      toast({ title: "Error al actualizar estado", variant: "destructive" });
+    }
+  };
+
+  const handleDocDelete = async (docId: number) => {
+    try {
+      await apiRequest("DELETE", `/api/admin/documents/${docId}`, undefined);
+      setAdminDocuments(prev => prev.filter(d => d.id !== docId));
+      toast({ title: "Documento eliminado" });
+    } catch {
+      toast({ title: "Error al eliminar", variant: "destructive" });
+    }
+  };
+
   const fetchCards = async () => {
     try {
       showLoading("Cargando tarjetas...");
@@ -1652,6 +1702,7 @@ Quedamos atentos ante cualquier novedad.`;
             {hasPerm('manage_charges') && <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>}
             {hasPerm('view_audit_logs') && <TabsTrigger value="audit" onClick={fetchAuditLogs} data-testid="tab-audit-logs">Registro de Actividad</TabsTrigger>}
             {hasPerm('manage_settings') && <TabsTrigger value="settings" onClick={() => { fetchSettings(); fetchAdminFeatures(); }}>Configuración</TabsTrigger>}
+            {hasPerm('view_users') && <TabsTrigger value="documentos" onClick={() => fetchAdminDocuments()}>Documentos</TabsTrigger>}
             {!isAssistant && <TabsTrigger value="assistants" onClick={fetchAssistants}>Asistentes</TabsTrigger>}
           </TabsList>
         </div>
@@ -2438,6 +2489,133 @@ Quedamos atentos ante cualquier novedad.`;
             </CardContent>
           </Card>
           <p className="text-xs text-gray-400 mt-2">{adminContacts.length} contacto(s) en total</p>
+        </TabsContent>
+
+        {/* Documentos Tab */}
+        <TabsContent value="documentos">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Documentos de usuarios</h2>
+            <div className="flex gap-2">
+              <input
+                className="border rounded px-3 py-1.5 text-sm"
+                placeholder="Buscar..."
+                value={docSearch}
+                onChange={e => setDocSearch(e.target.value)}
+                data-testid="input-doc-search"
+              />
+              <Button variant="outline" size="sm" onClick={fetchAdminDocuments}>Actualizar</Button>
+            </div>
+          </div>
+          {adminDocuments.length === 0 ? (
+            <div className="text-center text-gray-400 py-12">No hay documentos enviados aún</div>
+          ) : (
+            <div className="grid gap-3">
+              {adminDocuments
+                .filter(d => {
+                  const q = docSearch.toLowerCase();
+                  return !q || d.userName?.toLowerCase().includes(q) || d.type?.toLowerCase().includes(q) || d.filename?.toLowerCase().includes(q) || d.status?.toLowerCase().includes(q);
+                })
+                .map(doc => {
+                  const statusColors: Record<string, string> = {
+                    pendiente: 'bg-yellow-100 text-yellow-700',
+                    revisado: 'bg-blue-100 text-blue-700',
+                    aprobado: 'bg-green-100 text-green-700',
+                    rechazado: 'bg-red-100 text-red-700',
+                  };
+                  return (
+                    <Card key={doc.id} data-testid={`card-admin-doc-${doc.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm">{doc.userName || `Usuario #${doc.userId}`}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[doc.status] || 'bg-gray-100 text-gray-600'}`}>{doc.status}</span>
+                              <span className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString('es-CO')}</span>
+                            </div>
+                            <p className="text-sm mt-1"><span className="font-medium text-gray-700">Tipo:</span> {doc.type}</p>
+                            <p className="text-xs text-gray-500 truncate">{doc.filename}</p>
+                            {doc.description && <p className="text-xs text-gray-500 mt-1 italic">{doc.description}</p>}
+                            {doc.adminNote && <p className="text-xs text-blue-600 mt-1 bg-blue-50 rounded p-1.5">💬 {doc.adminNote}</p>}
+                          </div>
+                          <div className="flex flex-col gap-1.5 flex-shrink-0">
+                            <Button size="sm" variant="outline" onClick={() => handleDocView(doc.id, doc.mimeType, doc.filename)} data-testid={`button-view-doc-${doc.id}`}>
+                              Ver
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => { setDocReviewId(doc.id); setDocReviewNote(doc.adminNote || ""); setDocReviewStatus("aprobado"); }} data-testid={`button-review-doc-${doc.id}`}>
+                              Revisar
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => handleDocDelete(doc.id)} data-testid={`button-admin-delete-doc-${doc.id}`}>
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-2">{adminDocuments.length} documento(s) en total</p>
+
+          {/* View image dialog */}
+          {docViewData && (
+            <Dialog open onOpenChange={() => setDocViewData(null)}>
+              <DialogContent className="max-w-[95vw] max-h-[90vh]">
+                <DialogHeader><DialogTitle className="text-sm truncate">{docViewData.filename}</DialogTitle></DialogHeader>
+                <div className="overflow-auto max-h-[70vh] flex items-center justify-center">
+                  <img src={docViewData.src} alt={docViewData.filename} className="max-w-full rounded" />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDocViewData(null)}>Cerrar</Button>
+                  <a href={docViewData.src} download={docViewData.filename}>
+                    <Button className="bg-red-600 hover:bg-red-700 text-white">Descargar</Button>
+                  </a>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Review dialog */}
+          {docReviewId !== null && (
+            <Dialog open onOpenChange={() => setDocReviewId(null)}>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Revisar documento #{docReviewId}</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Estado</label>
+                    <select
+                      value={docReviewStatus}
+                      onChange={e => setDocReviewStatus(e.target.value)}
+                      className="border rounded px-3 py-1.5 text-sm w-full"
+                      data-testid="select-doc-review-status"
+                    >
+                      <option value="revisado">Revisado</option>
+                      <option value="aprobado">Aprobado</option>
+                      <option value="rechazado">Rechazado</option>
+                      <option value="pendiente">Pendiente</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Nota para el usuario (opcional)</label>
+                    <textarea
+                      value={docReviewNote}
+                      onChange={e => setDocReviewNote(e.target.value)}
+                      rows={3}
+                      className="border rounded px-3 py-1.5 text-sm w-full"
+                      placeholder="Ej: Documento recibido correctamente, enviaste la foto borrosa..."
+                      data-testid="input-doc-review-note"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDocReviewId(null)}>Cancelar</Button>
+                  <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => handleDocStatus(docReviewId, docReviewStatus, docReviewNote)} data-testid="button-confirm-doc-review">
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </TabsContent>
 
         {/* Notifications Tab */}

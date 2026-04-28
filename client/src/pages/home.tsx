@@ -579,16 +579,20 @@ const HomePage = () => {
 
           {features.feature_document_upload && (
             <section className="mt-4 px-4" data-testid="feature-document-upload">
-              <div className="bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between">
+              <button
+                onClick={() => navigate('/documentos')}
+                className="w-full bg-white rounded-lg p-3 shadow-sm border flex items-center justify-between hover:bg-gray-50 transition-colors"
+                data-testid="button-go-documentos"
+              >
                 <div className="flex items-center gap-3">
                   <Upload className="text-teal-600 shrink-0" size={24} />
-                  <div>
+                  <div className="text-left">
                     <p className="font-semibold text-sm">Carga de Documentos</p>
                     <p className="text-xs text-gray-600">Suba documentos de identidad y comprobantes</p>
                   </div>
                 </div>
-                <span className="bg-teal-100 text-teal-700 text-xs px-2 py-1 rounded-lg font-medium">Disponible</span>
-              </div>
+                <span className="bg-teal-100 text-teal-700 text-xs px-2 py-1 rounded-lg font-medium">Abrir →</span>
+              </button>
             </section>
           )}
 

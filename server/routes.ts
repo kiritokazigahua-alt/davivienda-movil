@@ -953,6 +953,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DOCUMENT ROUTES
+  app.get("/api/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const docs = await storage.getUserDocuments(userId);
+      // Return without base64 data for listing (too heavy)
+      return res.json(docs.map(d => ({ ...d, data: undefined, hasData: !!d.data })));
+    } catch (error) {
+      console.error("Error obteniendo documentos:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.post("/api/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const { type, filename, mimeType, data, description } = req.body;
+      if (!type || !filename || !mimeType || !data) {
+        return res.status(400).json({ message: "Datos incompletos" });
+      }
+      // Limit size: 8MB base64 ≈ 6MB file
+      if (data.length > 8 * 1024 * 1024) {
+        return res.status(413).json({ message: "Archivo demasiado grande. Máximo 6MB." });
+      }
+      const doc = await storage.createUserDocument({ userId, type, filename, mimeType, data, description: description || null, status: "pendiente", adminNote: null });
+      await createAuditLog(req, "user_upload_document", `Usuario subió documento tipo "${type}": ${filename}`, "document", doc.id);
+      (global as any).broadcastAdminNotification?.(`[DOCUMENTO] Nuevo documento enviado por usuario ID ${userId}: ${type} - ${filename}`);
+      return res.status(201).json({ ...doc, data: undefined });
+    } catch (error) {
+      console.error("Error subiendo documento:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/documents/:id/data", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const id = parseInt(req.params.id);
+      const docs = await storage.getUserDocuments(userId);
+      const doc = docs.find(d => d.id === id);
+      if (!doc) return res.status(404).json({ message: "Documento no encontrado" });
+      return res.json({ data: doc.data, mimeType: doc.mimeType, filename: doc.filename });
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/documents/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const id = parseInt(req.params.id);
+      const docs = await storage.getUserDocuments(userId);
+      const doc = docs.find(d => d.id === id);
+      if (!doc) return res.status(404).json({ message: "Documento no encontrado" });
+      await storage.deleteUserDocument(id);
+      return res.json({ message: "Documento eliminado" });
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/admin/documents", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const docs = await storage.getAllUserDocuments();
+      return res.json(docs.map(d => ({ ...d, data: undefined, hasData: !!d.data })));
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/admin/documents/:id/data", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const docs = await storage.getAllUserDocuments();
+      const doc = docs.find(d => d.id === id);
+      if (!doc) return res.status(404).json({ message: "No encontrado" });
+      const fullDoc = await storage.getUserDocuments(doc.userId);
+      const fullData = fullDoc.find(d => d.id === id);
+      if (!fullData) return res.status(404).json({ message: "No encontrado" });
+      return res.json({ data: fullData.data, mimeType: fullData.mimeType, filename: fullData.filename });
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.patch("/api/admin/documents/:id/status", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, adminNote } = req.body;
+      const updated = await storage.updateUserDocumentStatus(id, status, adminNote);
+      await createAuditLog(req, "admin_review_document", `Admin cambió estado de documento ID ${id} a "${status}"`, "document", id);
+      return res.json(updated);
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/admin/documents/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteUserDocument(id);
+      return res.json({ message: "Documento eliminado" });
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // BENEFICIARY ROUTES
   app.get("/api/beneficiaries", isAuthenticated, async (req: Request, res: Response) => {
     try {

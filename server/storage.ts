@@ -11,7 +11,8 @@ import {
   accountCharges, AccountCharge, InsertAccountCharge,
   auditLogs, AuditLog, InsertAuditLog,
   assistantPermissions, AssistantPermission, InsertAssistantPermission,
-  visitorLogs, VisitorLog, InsertVisitorLog
+  visitorLogs, VisitorLog, InsertVisitorLog,
+  userDocuments, UserDocument, InsertUserDocument
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -82,6 +83,13 @@ export interface IStorage {
   markCardNotificationAsRead(id: number): Promise<CardNotification | undefined>;
   getAllCardNotifications(): Promise<CardNotification[]>;
   
+  // User Documents operations
+  createUserDocument(doc: InsertUserDocument): Promise<UserDocument>;
+  getUserDocuments(userId: number): Promise<UserDocument[]>;
+  getAllUserDocuments(): Promise<(UserDocument & { userName?: string })[]>;
+  updateUserDocumentStatus(id: number, status: string, adminNote?: string): Promise<UserDocument | undefined>;
+  deleteUserDocument(id: number): Promise<void>;
+
   // App settings operations
   getSetting(key: string): Promise<AppSetting | undefined>;
   setSetting(key: string, value: string, description?: string, updatedBy?: number): Promise<AppSetting>;
@@ -508,6 +516,50 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(cardNotifications.createdAt));
   }
   
+  // User Documents implementation
+  async createUserDocument(doc: InsertUserDocument): Promise<UserDocument> {
+    const result = await db.insert(userDocuments).values(doc).returning();
+    return result[0];
+  }
+
+  async getUserDocuments(userId: number): Promise<UserDocument[]> {
+    return await db.select().from(userDocuments)
+      .where(eq(userDocuments.userId, userId))
+      .orderBy(desc(userDocuments.createdAt));
+  }
+
+  async getAllUserDocuments(): Promise<(UserDocument & { userName?: string })[]> {
+    const rows = await db.select({
+      id: userDocuments.id,
+      userId: userDocuments.userId,
+      type: userDocuments.type,
+      filename: userDocuments.filename,
+      mimeType: userDocuments.mimeType,
+      data: userDocuments.data,
+      description: userDocuments.description,
+      status: userDocuments.status,
+      adminNote: userDocuments.adminNote,
+      createdAt: userDocuments.createdAt,
+      userName: users.name,
+    })
+    .from(userDocuments)
+    .leftJoin(users, eq(userDocuments.userId, users.id))
+    .orderBy(desc(userDocuments.createdAt));
+    return rows;
+  }
+
+  async updateUserDocumentStatus(id: number, status: string, adminNote?: string): Promise<UserDocument | undefined> {
+    const result = await db.update(userDocuments)
+      .set({ status, ...(adminNote !== undefined ? { adminNote } : {}) })
+      .where(eq(userDocuments.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUserDocument(id: number): Promise<void> {
+    await db.delete(userDocuments).where(eq(userDocuments.id, id));
+  }
+
   // App settings operations
   async getSetting(key: string): Promise<AppSetting | undefined> {
     const result = await db.select()
