@@ -63,6 +63,8 @@ export interface Beneficiary {
   bank: string;
   accountNumber: string;
   accountType: string;
+  phone?: string | null;
+  email?: string | null;
 }
 
 // Service types

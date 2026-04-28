@@ -73,6 +73,8 @@ export const beneficiaries = pgTable("beneficiaries", {
   bank: text("bank").notNull(),
   accountNumber: text("account_number").notNull(),
   accountType: text("account_type").notNull(),
+  phone: text("phone"),
+  email: text("email"),
 });
 
 export const insertBeneficiarySchema = createInsertSchema(beneficiaries).omit({

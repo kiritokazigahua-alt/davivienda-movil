@@ -164,6 +164,8 @@ const AdminPage = () => {
   const [accounts, setAccounts] = useState<ExtendedAccount[]>([]);
   const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [sessions, setSessions] = useState<ExtendedUserSession[]>([]);
+  const [adminContacts, setAdminContacts] = useState<any[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
@@ -513,6 +515,30 @@ const AdminPage = () => {
         description: "No se pudieron cargar las sesiones",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchContacts = async () => {
+    try {
+      showLoading("Cargando contactos...");
+      const response = await apiRequest("GET", "/api/admin/beneficiaries");
+      const data = await response.json();
+      setAdminContacts(Array.isArray(data) ? data : []);
+      hideLoading();
+    } catch (error) {
+      hideLoading();
+      toast({ title: "Error", description: "No se pudieron cargar los contactos", variant: "destructive" });
+    }
+  };
+
+  const handleAdminDeleteContact = async (id: number) => {
+    try {
+      const response = await apiRequest("DELETE", `/api/admin/beneficiaries/${id}`, undefined);
+      if (!response.ok) throw new Error();
+      setAdminContacts(prev => prev.filter(c => c.id !== id));
+      toast({ title: "Contacto eliminado" });
+    } catch {
+      toast({ title: "Error al eliminar", variant: "destructive" });
     }
   };
   
@@ -1620,6 +1646,7 @@ Quedamos atentos ante cualquier novedad.`;
             {hasPerm('manage_cards') && <TabsTrigger value="cards" onClick={fetchCards}>Tarjetas</TabsTrigger>}
             {hasPerm('view_transactions') && <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>}
             {hasPerm('view_sessions') && <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>}
+            {hasPerm('view_users') && <TabsTrigger value="contacts" onClick={fetchContacts}>Contactos</TabsTrigger>}
             {hasPerm('manage_notifications') && <TabsTrigger value="notifications">Notificaciones</TabsTrigger>}
             {hasPerm('manage_alerts') && <TabsTrigger value="alerts">Alertas</TabsTrigger>}
             {hasPerm('manage_charges') && <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>}
@@ -2329,6 +2356,90 @@ Quedamos atentos ante cualquier novedad.`;
           </Card>
         </TabsContent>
         
+        {/* Contacts Tab */}
+        <TabsContent value="contacts">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Contactos y Beneficiarios</h2>
+            <Button variant="outline" onClick={fetchContacts} size="sm">Actualizar</Button>
+          </div>
+
+          <Input
+            className="mb-4"
+            placeholder="Buscar por nombre, teléfono, correo o cuenta..."
+            value={contactSearch}
+            onChange={(e) => setContactSearch(e.target.value)}
+            data-testid="input-contact-search"
+          />
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3">ID</th>
+                      <th className="text-left p-3">Propietario</th>
+                      <th className="text-left p-3">Nombre del Contacto</th>
+                      <th className="text-left p-3">Teléfono</th>
+                      <th className="text-left p-3">Correo</th>
+                      <th className="text-left p-3">Banco</th>
+                      <th className="text-left p-3">Número de Cuenta</th>
+                      <th className="text-left p-3">Tipo</th>
+                      <th className="text-left p-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminContacts
+                      .filter(c => {
+                        const q = contactSearch.toLowerCase();
+                        if (!q) return true;
+                        return (
+                          c.name?.toLowerCase().includes(q) ||
+                          c.phone?.toLowerCase().includes(q) ||
+                          c.email?.toLowerCase().includes(q) ||
+                          c.accountNumber?.toLowerCase().includes(q) ||
+                          c.userName?.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((c) => (
+                        <tr key={c.id} className="border-t hover:bg-gray-50" data-testid={`row-contact-${c.id}`}>
+                          <td className="p-3 text-gray-500">{c.id}</td>
+                          <td className="p-3 font-medium">{c.userName || `Usuario #${c.userId}`}</td>
+                          <td className="p-3 font-semibold">{c.name}</td>
+                          <td className="p-3 font-mono">{c.phone || <span className="text-gray-400 italic">—</span>}</td>
+                          <td className="p-3">{c.email || <span className="text-gray-400 italic">—</span>}</td>
+                          <td className="p-3">{c.bank}</td>
+                          <td className="p-3 font-mono">{c.accountNumber !== '000000000' ? c.accountNumber : <span className="text-gray-400 italic">—</span>}</td>
+                          <td className="p-3 capitalize">{c.accountType}</td>
+                          <td className="p-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-500 border-red-200 hover:bg-red-50"
+                              onClick={() => handleAdminDeleteContact(c.id)}
+                              data-testid={`button-admin-delete-contact-${c.id}`}
+                            >
+                              Eliminar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                    {adminContacts.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="p-6 text-center text-gray-400">
+                          No hay contactos registrados aún
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          <p className="text-xs text-gray-400 mt-2">{adminContacts.length} contacto(s) en total</p>
+        </TabsContent>
+
         {/* Notifications Tab */}
         <TabsContent value="notifications">
           <div className="flex justify-between items-center mb-4">

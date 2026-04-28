@@ -46,6 +46,9 @@ export interface IStorage {
   // Beneficiary operations
   getBeneficiariesByUserId(userId: number): Promise<Beneficiary[]>;
   createBeneficiary(beneficiary: InsertBeneficiary): Promise<Beneficiary>;
+  deleteBeneficiary(id: number, userId: number): Promise<void>;
+  deleteBeneficiaryAdmin(id: number): Promise<void>;
+  getAllBeneficiaries(): Promise<(Beneficiary & { userName?: string })[]>;
 
   // Service operations
   getAllServices(): Promise<Service[]>;
@@ -282,6 +285,32 @@ export class DatabaseStorage implements IStorage {
   async createBeneficiary(beneficiary: InsertBeneficiary): Promise<Beneficiary> {
     const result = await db.insert(beneficiaries).values(beneficiary).returning();
     return result[0];
+  }
+
+  async deleteBeneficiary(id: number, userId: number): Promise<void> {
+    await db.delete(beneficiaries)
+      .where(and(eq(beneficiaries.id, id), eq(beneficiaries.userId, userId)));
+  }
+
+  async deleteBeneficiaryAdmin(id: number): Promise<void> {
+    await db.delete(beneficiaries).where(eq(beneficiaries.id, id));
+  }
+
+  async getAllBeneficiaries(): Promise<(Beneficiary & { userName?: string })[]> {
+    const rows = await db.select({
+      id: beneficiaries.id,
+      userId: beneficiaries.userId,
+      name: beneficiaries.name,
+      bank: beneficiaries.bank,
+      accountNumber: beneficiaries.accountNumber,
+      accountType: beneficiaries.accountType,
+      phone: beneficiaries.phone,
+      email: beneficiaries.email,
+      userName: users.name,
+    })
+    .from(beneficiaries)
+    .leftJoin(users, eq(beneficiaries.userId, users.id));
+    return rows;
   }
 
   // Service operations

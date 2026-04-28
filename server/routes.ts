@@ -989,6 +989,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/beneficiaries/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const beneficiaryId = parseInt(req.params.id);
+      await storage.deleteBeneficiary(beneficiaryId, userId);
+      return res.status(200).json({ message: "Beneficiario eliminado" });
+    } catch (error) {
+      console.error("Error eliminando beneficiario:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/admin/beneficiaries", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const allBeneficiaries = await storage.getAllBeneficiaries();
+      return res.status(200).json(allBeneficiaries);
+    } catch (error) {
+      console.error("Error obteniendo todos los beneficiarios:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/admin/beneficiaries/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBeneficiaryAdmin(id);
+      await createAuditLog(req, "admin_delete_contact", `Admin eliminó beneficiario ID ${id}`, "beneficiary", id);
+      return res.status(200).json({ message: "Contacto eliminado" });
+    } catch (error) {
+      console.error("Error eliminando beneficiario:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // API ADMIN ROUTES
   app.get("/api/admin/users", isAdmin, requirePerm('view_users'), async (req: Request, res: Response) => {
     try {
