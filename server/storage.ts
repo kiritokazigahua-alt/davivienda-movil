@@ -836,11 +836,11 @@ export class DatabaseStorage implements IStorage {
     
     // Create default beneficiaries for test user
     const defaultBeneficiaries = [
-      { userId: testUser.id, name: "Beneficiario Bancolombia", bank: "Bancolombia", accountNumber: "9876543210", accountType: "Ahorros" },
-      { userId: testUser.id, name: "Beneficiario BBVA", bank: "BBVA Colombia", accountNumber: "5678901234", accountType: "Corriente" },
-      { userId: testUser.id, name: "Beneficiario Occidente", bank: "Banco de Occidente", accountNumber: "2468013579", accountType: "Ahorros" },
-      { userId: testUser.id, name: "Beneficiario Banco Popular", bank: "Banco Popular", accountNumber: "1357924680", accountType: "Corriente" },
-      { userId: testUser.id, name: "Beneficiario Caja Social", bank: "Banco Caja Social", accountNumber: "3141592653", accountType: "Ahorros" },
+      { userId: testUser.id, name: "Beneficiario Bancolombia", bank: "Bancolombia", accountNumber: "9876543210", accountType: "Ahorros", phone: "3001234567", email: "bancolombia@demo.com" },
+      { userId: testUser.id, name: "Beneficiario BBVA", bank: "BBVA Colombia", accountNumber: "5678901234", accountType: "Corriente", phone: "3009876543", email: "bbva@demo.com" },
+      { userId: testUser.id, name: "Beneficiario Occidente", bank: "Banco de Occidente", accountNumber: "2468013579", accountType: "Ahorros", phone: "3112222333", email: "occidente@demo.com" },
+      { userId: testUser.id, name: "Beneficiario Banco Popular", bank: "Banco Popular", accountNumber: "1357924680", accountType: "Corriente", phone: "3204445555", email: "popular@demo.com" },
+      { userId: testUser.id, name: "Beneficiario Caja Social", bank: "Banco Caja Social", accountNumber: "3141592653", accountType: "Ahorros", phone: "3156667777", email: "cajasocial@demo.com" },
     ];
     
     for (const beneficiary of defaultBeneficiaries) {

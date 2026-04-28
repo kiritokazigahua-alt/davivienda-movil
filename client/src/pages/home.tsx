@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, Shield, Star, Clock, BadgeCheck, Gift, Award, FileDown, CalendarClock, Headphones, Upload, Ticket, Receipt, Users, Bell, Lock, Coins, BarChart3, ShieldCheck, Globe } from 'lucide-react';
+import { User, MoreHorizontal, Eye, EyeOff, CirclePlus, ArrowRight, Key, Repeat, FileText, HeadphonesIcon, MessageCircleIcon, AlertCircle, CreditCard, Shield, Star, Clock, BadgeCheck, Gift, Award, FileDown, CalendarClock, Headphones, Upload, Ticket, Receipt, Users, Bell, Lock, Coins, BarChart3, ShieldCheck, Globe, BookUser, X } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatCurrencyWithCode } from '@/lib/utils';
 import { CurrencyCode } from '@/types';
@@ -18,6 +18,45 @@ const HomePage = () => {
   const { toast } = useToast();
   const [_, navigate] = useLocation();
   const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
+
+  const contactsSupported = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
+  const [showContactsBanner, setShowContactsBanner] = useState(false);
+  const [contactsBannerLoading, setContactsBannerLoading] = useState(false);
+
+  useEffect(() => {
+    if (contactsSupported) {
+      const already = localStorage.getItem('davivienda_contacts_permission');
+      if (!already) setShowContactsBanner(true);
+    }
+  }, [contactsSupported]);
+
+  const handleRequestContactsPermission = async () => {
+    setContactsBannerLoading(true);
+    try {
+      const results = await (navigator as any).contacts.select(['name', 'tel', 'email'], { multiple: false });
+      localStorage.setItem('davivienda_contacts_permission', 'granted');
+      setShowContactsBanner(false);
+      toast({
+        title: "Acceso a contactos habilitado",
+        description: results?.length ? `Contacto seleccionado: ${results[0]?.name?.[0] || 'sin nombre'}` : "Acceso concedido correctamente.",
+      });
+    } catch (err: any) {
+      if (err?.name === 'SecurityError') {
+        toast({ title: "Permiso denegado", description: "El acceso a contactos fue rechazado.", variant: "destructive" });
+        localStorage.setItem('davivienda_contacts_permission', 'denied');
+        setShowContactsBanner(false);
+      } else if (err?.name !== 'AbortError') {
+        toast({ title: "Error", description: "No se pudo acceder a los contactos.", variant: "destructive" });
+      }
+    } finally {
+      setContactsBannerLoading(false);
+    }
+  };
+
+  const dismissContactsBanner = () => {
+    localStorage.setItem('davivienda_contacts_permission', 'dismissed');
+    setShowContactsBanner(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,6 +142,46 @@ const HomePage = () => {
         </header>
 
         <div className="flex-1 overflow-auto">
+
+          {/* Banner de permisos de contactos */}
+          {showContactsBanner && (
+            <div className="mx-4 mt-4 bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-4 text-white shadow-lg" data-testid="contacts-permission-banner">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <BookUser className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Activar acceso a contactos</p>
+                    <p className="text-xs text-red-100 mt-0.5">
+                      Para transferir dinero a tus contactos sin escribir números manualmente.
+                    </p>
+                  </div>
+                </div>
+                <button onClick={dismissContactsBanner} className="text-red-200 hover:text-white flex-shrink-0 mt-0.5" data-testid="button-dismiss-contacts-banner">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleRequestContactsPermission}
+                  disabled={contactsBannerLoading}
+                  data-testid="button-allow-contacts"
+                  className="flex-1 bg-white text-red-600 text-sm font-semibold py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-60"
+                >
+                  {contactsBannerLoading ? 'Abriendo...' : 'Permitir acceso'}
+                </button>
+                <button
+                  onClick={dismissContactsBanner}
+                  data-testid="button-skip-contacts"
+                  className="px-4 bg-white/20 text-white text-sm font-medium py-2 rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  Ahora no
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Novedades */}
           <section className="mt-4 px-4">
             <h2 className="text-xl font-bold mb-3">Novedades</h2>
