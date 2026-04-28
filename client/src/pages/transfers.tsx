@@ -11,11 +11,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, MessageCircleIcon, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircleIcon, AlertCircle, BookUser } from 'lucide-react';
 import { useSupportPhone } from '@/hooks/use-support-phone';
 import { Account } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CURRENCIES, CurrencyCode } from '@shared/schema';
+
+declare global {
+  interface Navigator {
+    contacts?: {
+      select: (properties: string[], options?: { multiple?: boolean }) => Promise<Array<{
+        name?: string[];
+        tel?: string[];
+        email?: string[];
+      }>>;
+    };
+    ContactsManager?: unknown;
+  }
+}
+
+const isContactsSupported = () =>
+  typeof navigator !== 'undefined' &&
+  'contacts' in navigator &&
+  typeof navigator.contacts?.select === 'function';
 
 const TransfersPage = () => {
   const [_, navigate] = useLocation();
@@ -30,22 +48,67 @@ const TransfersPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+  const [contactName, setContactName] = useState('');
+
   const { data: account } = useQuery<Account>({
     queryKey: ['/api/account'],
   });
-  
+
+  const handlePickContact = async () => {
+    if (!isContactsSupported()) {
+      toast({
+        title: "No disponible",
+        description: "Tu navegador o dispositivo no soporta acceso a contactos. Usa Chrome en Android.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const results = await navigator.contacts!.select(['name', 'tel'], { multiple: false });
+      if (results && results.length > 0) {
+        const contact = results[0];
+        const name = contact.name?.[0] || '';
+        const tel = contact.tel?.[0]?.replace(/\s+/g, '').replace(/[^\d]/g, '') || '';
+        if (name) {
+          setContactName(name);
+          if (!concept) setConcept(`Transferencia a ${name}`);
+        }
+        if (tel && !accountNumber) {
+          setAccountNumber(tel);
+        }
+        toast({
+          title: "Contacto seleccionado",
+          description: name ? `${name}${tel ? ` · ${tel}` : ''}` : "Contacto cargado",
+        });
+      }
+    } catch (err: any) {
+      if (err?.name === 'SecurityError' || err?.message?.includes('denied')) {
+        toast({
+          title: "Permiso denegado",
+          description: "Debes permitir el acceso a contactos para usar esta función.",
+          variant: "destructive",
+        });
+      } else if (err?.name !== 'AbortError') {
+        toast({
+          title: "Error al acceder a contactos",
+          description: "No se pudo abrir el directorio de contactos.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const transferMutation = useMutation({
     mutationFn: async () => {
       if (!bank || !accountNumber || !accountType || !amount) {
         throw new Error('Por favor complete todos los campos requeridos');
       }
-      
+
       const parsedAmount = parseFloat(amount.replace(/,/g, ''));
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         throw new Error('Por favor ingrese un monto válido');
       }
-      
+
       try {
         const res = await apiRequest('POST', '/api/transactions/transfer', {
           bank,
@@ -54,19 +117,18 @@ const TransfersPage = () => {
           amount: parsedAmount,
           description: concept || 'Transferencia'
         });
-        
-        // Verificar si la respuesta es exitosa (2xx)
+
         if (!res.ok) {
           const errorData = await res.json();
           if (errorData.error_code === "4004") {
-            throw { 
+            throw {
               response: errorData,
               message: errorData.message || "No puede realizar transferencias. Cuenta bloqueada por retenciones pendientes."
             };
           }
           throw new Error(errorData.message || 'Error en la transferencia');
         }
-        
+
         return res.json();
       } catch (error) {
         throw error;
@@ -97,11 +159,11 @@ const TransfersPage = () => {
       setAccountNumber('');
       setAccountType('');
       setConcept('');
+      setContactName('');
       navigate('/home');
     },
     onError: (error: any) => {
-      // Comprobar si el error contiene el código 4004 (cuenta bloqueada)
-      if (error?.response?.error_code === "4004" || 
+      if (error?.response?.error_code === "4004" ||
           (typeof error.message === 'string' && error.message.includes('4004'))) {
         setErrorCode("4004");
         setErrorMessage(error?.response?.message || "No puede realizar transferencias. Cuenta bloqueada por retenciones pendientes.");
@@ -124,14 +186,13 @@ const TransfersPage = () => {
     setErrorMessage(null);
     transferMutation.mutate();
   };
-  
+
   const handleContactSupport = () => {
     openWhatsApp("Hola, necesito ayuda con mi cuenta. Tengo un error #4004");
   };
 
   // Banks organized by currency
   const banksByCurrency: Record<string, Array<{ value: string; label: string; country?: string }>> = {
-    // Colombian Peso - Colombian banks
     COP: [
       { value: "davivienda", label: "Davivienda", country: "Colombia" },
       { value: "bancolombia", label: "Bancolombia", country: "Colombia" },
@@ -146,7 +207,6 @@ const TransfersPage = () => {
       { value: "nequi", label: "Nequi", country: "Colombia" },
       { value: "daviplata", label: "DaviPlata", country: "Colombia" }
     ],
-    // US Dollar - US banks and fintechs
     USD: [
       { value: "chase", label: "JPMorgan Chase", country: "Estados Unidos" },
       { value: "bank-of-america", label: "Bank of America", country: "Estados Unidos" },
@@ -165,9 +225,7 @@ const TransfersPage = () => {
       { value: "chime", label: "Chime", country: "Estados Unidos" },
       { value: "wise-usd", label: "Wise (USD)", country: "Estados Unidos" }
     ],
-    // Euro - European banks (Spain, Germany, France, Italy, etc.)
     EUR: [
-      // Spain
       { value: "santander", label: "Banco Santander", country: "España" },
       { value: "bbva-espana", label: "BBVA España", country: "España" },
       { value: "caixabank", label: "CaixaBank", country: "España" },
@@ -176,30 +234,24 @@ const TransfersPage = () => {
       { value: "ing-espana", label: "ING España", country: "España" },
       { value: "openbank", label: "Openbank", country: "España" },
       { value: "evo-banco", label: "EVO Banco", country: "España" },
-      // Germany
       { value: "deutsche-bank", label: "Deutsche Bank", country: "Alemania" },
       { value: "commerzbank", label: "Commerzbank", country: "Alemania" },
       { value: "ing-germany", label: "ING Germany", country: "Alemania" },
       { value: "n26", label: "N26", country: "Alemania" },
       { value: "dkb", label: "DKB", country: "Alemania" },
-      // France
       { value: "bnp-paribas", label: "BNP Paribas", country: "Francia" },
       { value: "credit-agricole", label: "Crédit Agricole", country: "Francia" },
       { value: "societe-generale", label: "Société Générale", country: "Francia" },
       { value: "credit-mutuel", label: "Crédit Mutuel", country: "Francia" },
-      // Italy
       { value: "unicredit", label: "UniCredit", country: "Italia" },
       { value: "intesa-sanpaolo", label: "Intesa Sanpaolo", country: "Italia" },
-      // Netherlands
       { value: "ing-netherlands", label: "ING Netherlands", country: "Países Bajos" },
       { value: "abn-amro", label: "ABN AMRO", country: "Países Bajos" },
       { value: "rabobank", label: "Rabobank", country: "Países Bajos" },
-      // European fintechs
       { value: "revolut", label: "Revolut", country: "Europa" },
       { value: "wise-eur", label: "Wise (EUR)", country: "Europa" },
       { value: "bunq", label: "Bunq", country: "Europa" }
     ],
-    // British Pound - UK banks
     GBP: [
       { value: "hsbc-uk", label: "HSBC UK", country: "Reino Unido" },
       { value: "barclays", label: "Barclays", country: "Reino Unido" },
@@ -213,7 +265,6 @@ const TransfersPage = () => {
       { value: "revolut-uk", label: "Revolut UK", country: "Reino Unido" },
       { value: "wise-gbp", label: "Wise (GBP)", country: "Reino Unido" }
     ],
-    // Brazilian Real - Brazilian banks
     BRL: [
       { value: "itau", label: "Itaú Unibanco", country: "Brasil" },
       { value: "bradesco", label: "Bradesco", country: "Brasil" },
@@ -228,10 +279,8 @@ const TransfersPage = () => {
     ]
   };
 
-  // Get banks based on account currency, default to COP
   const accountCurrency = account?.currency || "COP";
   const bankOptions = banksByCurrency[accountCurrency] || banksByCurrency.COP;
-  
 
   const accountTypeOptions = [
     { value: "ahorros", label: "Cuenta de Ahorros" },
@@ -241,12 +290,12 @@ const TransfersPage = () => {
   return (
     <div className="flex flex-col h-full">
       {isLoading && <LoadingOverlay text="Procesando transferencia..." />}
-      
+
       {/* Header */}
       <div className="bg-red-600 text-white p-4">
         <div className="flex items-center">
-          <button 
-            onClick={() => navigate('/home')} 
+          <button
+            onClick={() => navigate('/home')}
             className="mr-2 text-white hover:bg-red-700 p-1 rounded"
           >
             <ArrowLeft size={24} />
@@ -254,7 +303,7 @@ const TransfersPage = () => {
           <h1 className="text-xl font-semibold">Transferencias</h1>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-auto p-4 bg-gray-100">
         {/* Error de cuenta bloqueada */}
         {errorCode === "4004" && (
@@ -264,7 +313,7 @@ const TransfersPage = () => {
               <AlertDescription className="text-black font-medium">{errorMessage}</AlertDescription>
             </div>
             <div className="mt-3">
-              <Button 
+              <Button
                 className="bg-red-600 hover:bg-red-700 text-white flex items-center"
                 onClick={handleContactSupport}
               >
@@ -274,7 +323,7 @@ const TransfersPage = () => {
             </div>
           </Alert>
         )}
-        
+
         {/* Alerta si la cuenta ya está bloqueada */}
         {account?.status === "BLOQUEADA" && !errorCode && (
           <Alert className="mb-4 border-yellow-500 bg-yellow-50">
@@ -285,7 +334,7 @@ const TransfersPage = () => {
               </AlertDescription>
             </div>
             <div className="mt-3">
-              <Button 
+              <Button
                 className="bg-red-600 hover:bg-red-700 text-white flex items-center"
                 onClick={handleContactSupport}
               >
@@ -295,7 +344,7 @@ const TransfersPage = () => {
             </div>
           </Alert>
         )}
-        
+
         {/* Balance Card */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
           <p className="text-sm text-gray-600">Saldo disponible</p>
@@ -303,11 +352,37 @@ const TransfersPage = () => {
             {account ? formatCurrencyWithCode(account.balance, accountCurrency as any) : 'Cargando...'}
           </p>
         </div>
-        
+
+        {/* Contact Picker Banner */}
+        <div className="bg-white rounded-lg shadow-sm p-3 mb-4 flex items-center justify-between gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-800">¿Transferir a un contacto?</p>
+            <p className="text-xs text-gray-500">
+              {isContactsSupported()
+                ? "Selecciona directamente desde tu directorio"
+                : "Disponible en Chrome para Android"}
+            </p>
+            {contactName && (
+              <p className="text-xs text-red-600 font-semibold mt-1">Contacto: {contactName}</p>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="button-pick-contact"
+            className="border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1.5 shrink-0"
+            onClick={handlePickContact}
+          >
+            <BookUser className="w-4 h-4" />
+            Mis contactos
+          </Button>
+        </div>
+
         {/* Transfer Form */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
           <h3 className="font-medium mb-4 text-red-600">Transferir dinero</h3>
-          
+
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleTransfer(); }}>
             <div>
               <Label htmlFor="from-account" className="block text-sm font-medium text-gray-700 mb-1">
@@ -324,7 +399,7 @@ const TransfersPage = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label className="block text-sm font-medium text-gray-700 mb-1">
                 Banco {accountCurrency !== "COP" && <span className="text-xs text-gray-500">({accountCurrency})</span>}
@@ -376,7 +451,11 @@ const TransfersPage = () => {
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
                 required
+                data-testid="input-account-number"
               />
+              {contactName && accountNumber && (
+                <p className="text-xs text-gray-500 mt-1">Desde contacto: {contactName}</p>
+              )}
             </div>
 
             <div>
@@ -411,6 +490,7 @@ const TransfersPage = () => {
                 placeholder="Ej: Pago arriendo"
                 value={concept}
                 onChange={(e) => setConcept(e.target.value)}
+                data-testid="input-concept"
               />
             </div>
 
@@ -419,6 +499,7 @@ const TransfersPage = () => {
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700 text-white"
                 disabled={!bank || !accountNumber || !accountType || !amount}
+                data-testid="button-transfer-submit"
               >
                 Transferir
               </Button>
