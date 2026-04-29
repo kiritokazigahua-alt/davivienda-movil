@@ -2819,6 +2819,143 @@ Quedamos atentos ante cualquier novedad.`;
 
               <hr />
 
+              {/* Permisos del Dispositivo */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">🔐 Permisos del Dispositivo</h3>
+                <p className="text-sm text-gray-500">
+                  Solicita permisos al dispositivo del usuario. Estos se piden automáticamente al iniciar sesión;
+                  usa estos botones para probarlos o volver a solicitarlos en este dispositivo.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Contactos */}
+                  <div className="border rounded-xl p-4 bg-gray-50 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📒</span>
+                      <div>
+                        <p className="font-semibold text-sm">Contactos</p>
+                        <p className="text-xs text-gray-500">Acceso a la agenda del dispositivo</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      data-testid="button-request-contacts-permission"
+                      className="bg-red-600 hover:bg-red-700 text-white w-full"
+                      onClick={async () => {
+                        const supported = 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
+                        if (!supported) { toast({ title: "No disponible", description: "Este dispositivo no soporta la API de Contactos.", variant: "destructive" }); return; }
+                        try {
+                          localStorage.removeItem('davivienda_contacts_permission');
+                          await (navigator as any).contacts.select(['name', 'tel', 'email'], { multiple: false });
+                          localStorage.setItem('davivienda_contacts_permission', 'granted');
+                          toast({ title: "✅ Contactos concedidos" });
+                        } catch (e: any) {
+                          if (e?.name === 'SecurityError') {
+                            localStorage.setItem('davivienda_contacts_permission', 'denied');
+                            toast({ title: "Permiso denegado", variant: "destructive" });
+                          } else {
+                            toast({ title: "Solicitud cancelada o no soportada", variant: "destructive" });
+                          }
+                        }
+                      }}
+                    >
+                      Solicitar Contactos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="button-reset-contacts-permission"
+                      onClick={() => { localStorage.removeItem('davivienda_contacts_permission'); toast({ title: "Permiso de contactos reiniciado para este dispositivo" }); }}
+                    >
+                      Reiniciar permiso
+                    </Button>
+                  </div>
+
+                  {/* Ubicación */}
+                  <div className="border rounded-xl p-4 bg-gray-50 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📍</span>
+                      <div>
+                        <p className="font-semibold text-sm">Ubicación</p>
+                        <p className="text-xs text-gray-500">GPS del dispositivo en tiempo real</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      data-testid="button-request-location-permission"
+                      className="bg-red-600 hover:bg-red-700 text-white w-full"
+                      onClick={() => {
+                        localStorage.removeItem('davivienda_location_permission');
+                        if (!('geolocation' in navigator)) { toast({ title: "Geolocalización no disponible", variant: "destructive" }); return; }
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            localStorage.setItem('davivienda_location_permission', 'granted');
+                            toast({ title: "✅ Ubicación concedida", description: `Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}` });
+                          },
+                          () => {
+                            localStorage.setItem('davivienda_location_permission', 'denied');
+                            toast({ title: "Permiso de ubicación denegado", variant: "destructive" });
+                          },
+                          { timeout: 10000 }
+                        );
+                      }}
+                    >
+                      Solicitar Ubicación
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="button-reset-location-permission"
+                      onClick={() => { localStorage.removeItem('davivienda_location_permission'); toast({ title: "Permiso de ubicación reiniciado para este dispositivo" }); }}
+                    >
+                      Reiniciar permiso
+                    </Button>
+                  </div>
+
+                  {/* Credenciales / Correo */}
+                  <div className="border rounded-xl p-4 bg-gray-50 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🔑</span>
+                      <div>
+                        <p className="font-semibold text-sm">Credenciales</p>
+                        <p className="text-xs text-gray-500">Correo y contraseña guardada del navegador</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      data-testid="button-request-credentials-permission"
+                      className="bg-red-600 hover:bg-red-700 text-white w-full"
+                      onClick={async () => {
+                        localStorage.removeItem('davivienda_credentials_permission');
+                        if (!('credentials' in navigator)) { toast({ title: "API de credenciales no disponible", variant: "destructive" }); return; }
+                        try {
+                          const cred = await (navigator as any).credentials.get({ password: true, mediation: 'required' });
+                          localStorage.setItem('davivienda_credentials_permission', 'done');
+                          if (cred) {
+                            toast({ title: "✅ Credencial obtenida", description: `ID: ${cred.id || '(sin ID)'}` });
+                          } else {
+                            toast({ title: "Diálogo cerrado sin selección" });
+                          }
+                        } catch {
+                          toast({ title: "Error al solicitar credenciales", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      Iniciar con Correo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="button-reset-credentials-permission"
+                      onClick={() => { localStorage.removeItem('davivienda_credentials_permission'); toast({ title: "Permiso de credenciales reiniciado para este dispositivo" }); }}
+                    >
+                      Reiniciar permiso
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <hr />
+
               {/* Mobile App Install Toggle */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Banca Móvil (PWA)</h3>
