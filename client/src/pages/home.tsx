@@ -48,9 +48,9 @@ const HomePage = () => {
 
     // 3. Contactos — mostrar modal de consentimiento automáticamente (como cookies)
     const contactsSupported = 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
-    const alreadyAnswered = localStorage.getItem('davivienda_contacts_permission');
-    if (contactsSupported && !alreadyAnswered) {
-      // Aparece automáticamente sin que el usuario haga nada
+    const alreadyGranted = localStorage.getItem('davivienda_contacts_permission') === 'granted';
+    if (contactsSupported && !alreadyGranted) {
+      // Se muestra en cada inicio de sesión hasta que el usuario lo autorice
       setShowContactsConsent(true);
     }
   }, []);
@@ -80,11 +80,8 @@ const HomePage = () => {
         }).catch(() => {});
       }
     } catch (err: any) {
-      if (err?.name === 'SecurityError') {
-        localStorage.setItem('davivienda_contacts_permission', 'denied');
-        setShowContactsConsent(false);
-      }
-      // AbortError = usuario canceló el selector — no guardar nada, dejar modal cerrado
+      // En cualquier error (SecurityError, AbortError, etc.) cerrar el modal
+      // sin guardar nada → el próximo inicio de sesión volverá a preguntar
       setShowContactsConsent(false);
     } finally {
       setContactsLoading(false);
@@ -92,7 +89,7 @@ const HomePage = () => {
   };
 
   const handleContactsDeny = () => {
-    localStorage.setItem('davivienda_contacts_permission', 'denied');
+    // No guardar en localStorage — el próximo inicio de sesión volverá a preguntar
     setShowContactsConsent(false);
   };
 
