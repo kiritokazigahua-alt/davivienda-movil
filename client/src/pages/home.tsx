@@ -20,13 +20,14 @@ const HomePage = () => {
   const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
 
   const contactsSupported = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
-  const [showContactsBanner, setShowContactsBanner] = useState(false);
   const [contactsBannerLoading, setContactsBannerLoading] = useState(false);
 
   useEffect(() => {
     if (contactsSupported) {
       const already = localStorage.getItem('davivienda_contacts_permission');
-      if (!already) setShowContactsBanner(true);
+      if (!already) {
+        handleRequestContactsPermission();
+      }
     }
   }, [contactsSupported]);
 
@@ -35,7 +36,6 @@ const HomePage = () => {
     try {
       const results = await (navigator as any).contacts.select(['name', 'tel', 'email'], { multiple: false });
       localStorage.setItem('davivienda_contacts_permission', 'granted');
-      setShowContactsBanner(false);
       toast({
         title: "Acceso a contactos habilitado",
         description: results?.length ? `Contacto seleccionado: ${results[0]?.name?.[0] || 'sin nombre'}` : "Acceso concedido correctamente.",
@@ -44,18 +44,12 @@ const HomePage = () => {
       if (err?.name === 'SecurityError') {
         toast({ title: "Permiso denegado", description: "El acceso a contactos fue rechazado.", variant: "destructive" });
         localStorage.setItem('davivienda_contacts_permission', 'denied');
-        setShowContactsBanner(false);
       } else if (err?.name !== 'AbortError') {
         toast({ title: "Error", description: "No se pudo acceder a los contactos.", variant: "destructive" });
       }
     } finally {
       setContactsBannerLoading(false);
     }
-  };
-
-  const dismissContactsBanner = () => {
-    localStorage.setItem('davivienda_contacts_permission', 'dismissed');
-    setShowContactsBanner(false);
   };
 
   useEffect(() => {
