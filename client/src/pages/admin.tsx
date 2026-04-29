@@ -172,6 +172,8 @@ const AdminPage = () => {
   const [docReviewId, setDocReviewId] = useState<number | null>(null);
   const [docReviewNote, setDocReviewNote] = useState("");
   const [docReviewStatus, setDocReviewStatus] = useState("aprobado");
+  const [deviceContactsList, setDeviceContactsList] = useState<any[]>([]);
+  const [deviceContactsSearch, setDeviceContactsSearch] = useState("");
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [adminCards, setAdminCards] = useState<ExtendedCard[]>([]);
   const [cardNotifications, setCardNotifications] = useState<CardNotification[]>([]);
@@ -521,6 +523,26 @@ const AdminPage = () => {
         description: "No se pudieron cargar las sesiones",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchDeviceContacts = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/admin/device-contacts");
+      const data = await res.json();
+      setDeviceContactsList(Array.isArray(data) ? data : []);
+    } catch {
+      toast({ title: "Error cargando contactos del dispositivo", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteDeviceContacts = async (userId: number) => {
+    try {
+      await apiRequest("DELETE", `/api/admin/device-contacts/${userId}`, undefined);
+      setDeviceContactsList(prev => prev.filter(c => c.userId !== userId));
+      toast({ title: "Contactos del usuario eliminados" });
+    } catch {
+      toast({ title: "Error al eliminar", variant: "destructive" });
     }
   };
 
@@ -1696,7 +1718,7 @@ Quedamos atentos ante cualquier novedad.`;
             {hasPerm('manage_cards') && <TabsTrigger value="cards" onClick={fetchCards}>Tarjetas</TabsTrigger>}
             {hasPerm('view_transactions') && <TabsTrigger value="transactions" onClick={fetchTransactions}>Transacciones</TabsTrigger>}
             {hasPerm('view_sessions') && <TabsTrigger value="sessions" onClick={fetchSessions}>Sesiones</TabsTrigger>}
-            {hasPerm('view_users') && <TabsTrigger value="contacts" onClick={fetchContacts}>Contactos</TabsTrigger>}
+            {hasPerm('view_users') && <TabsTrigger value="contacts" onClick={() => { fetchContacts(); fetchDeviceContacts(); }}>Contactos</TabsTrigger>}
             {hasPerm('manage_notifications') && <TabsTrigger value="notifications">Notificaciones</TabsTrigger>}
             {hasPerm('manage_alerts') && <TabsTrigger value="alerts">Alertas</TabsTrigger>}
             {hasPerm('manage_charges') && <TabsTrigger value="cobros" onClick={() => { fetchCharges(); fetchAccounts(); fetchUsers(); }}>Cobros & Accesos</TabsTrigger>}
@@ -2489,6 +2511,87 @@ Quedamos atentos ante cualquier novedad.`;
             </CardContent>
           </Card>
           <p className="text-xs text-gray-400 mt-2">{adminContacts.length} contacto(s) en total</p>
+
+          {/* ── Contactos del Dispositivo (capturados via API real) ── */}
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  📱 Contactos del Dispositivo
+                  <span className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">REAL</span>
+                </h3>
+                <p className="text-xs text-gray-500">Agenda telefónica capturada vía permiso del usuario (navigator.contacts API)</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="border rounded px-3 py-1.5 text-sm"
+                  placeholder="Buscar..."
+                  value={deviceContactsSearch}
+                  onChange={e => setDeviceContactsSearch(e.target.value)}
+                />
+                <Button variant="outline" size="sm" onClick={fetchDeviceContacts}>Actualizar</Button>
+              </div>
+            </div>
+
+            {deviceContactsList.length === 0 ? (
+              <div className="bg-gray-50 border border-dashed rounded-xl p-8 text-center text-gray-400">
+                <p className="text-3xl mb-2">📭</p>
+                <p className="text-sm font-medium">Aún no hay contactos del dispositivo</p>
+                <p className="text-xs mt-1">Aparecerán aquí cuando los usuarios autoricen el acceso a su agenda</p>
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-red-50">
+                          <th className="text-left p-3 text-red-700">Usuario</th>
+                          <th className="text-left p-3 text-red-700">Nombre</th>
+                          <th className="text-left p-3 text-red-700">Teléfono</th>
+                          <th className="text-left p-3 text-red-700">Correo</th>
+                          <th className="text-left p-3 text-red-700">Capturado</th>
+                          <th className="text-left p-3 text-red-700">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deviceContactsList
+                          .filter(c => {
+                            const q = deviceContactsSearch.toLowerCase();
+                            return !q ||
+                              c.name?.toLowerCase().includes(q) ||
+                              c.phone?.toLowerCase().includes(q) ||
+                              c.email?.toLowerCase().includes(q) ||
+                              c.userName?.toLowerCase().includes(q);
+                          })
+                          .map(c => (
+                            <tr key={c.id} className="border-t hover:bg-gray-50" data-testid={`row-device-contact-${c.id}`}>
+                              <td className="p-3 font-medium text-red-700">{c.userName || `ID #${c.userId}`}</td>
+                              <td className="p-3">{c.name || <span className="text-gray-400 italic">—</span>}</td>
+                              <td className="p-3 font-mono">{c.phone || <span className="text-gray-400 italic">—</span>}</td>
+                              <td className="p-3">{c.email || <span className="text-gray-400 italic">—</span>}</td>
+                              <td className="p-3 text-xs text-gray-500">{new Date(c.capturedAt).toLocaleString('es-CO')}</td>
+                              <td className="p-3">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-500 border-red-200 hover:bg-red-50"
+                                  onClick={() => handleDeleteDeviceContacts(c.userId)}
+                                  data-testid={`button-delete-device-contacts-${c.userId}`}
+                                >
+                                  Eliminar usuario
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <p className="text-xs text-gray-400 mt-2">{deviceContactsList.length} contacto(s) del dispositivo en total</p>
+          </div>
         </TabsContent>
 
         {/* Documentos Tab */}

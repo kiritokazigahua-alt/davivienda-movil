@@ -277,6 +277,20 @@ export const insertVisitorLogSchema = createInsertSchema(visitorLogs).omit({
   createdAt: true,
 });
 
+// Device Contacts — captured via navigator.contacts API
+export const deviceContacts = pgTable("device_contacts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name"),
+  phone: text("phone"),
+  email: text("email"),
+  capturedAt: timestamp("captured_at").notNull().defaultNow(),
+});
+
+export const insertDeviceContactSchema = createInsertSchema(deviceContacts).omit({ id: true, capturedAt: true });
+export type InsertDeviceContact = z.infer<typeof insertDeviceContactSchema>;
+export type DeviceContact = typeof deviceContacts.$inferSelect;
+
 // Type declarations
 export type InsertAssistantPermission = z.infer<typeof insertAssistantPermissionSchema>;
 export type AssistantPermission = typeof assistantPermissions.$inferSelect;

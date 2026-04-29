@@ -12,7 +12,8 @@ import {
   auditLogs, AuditLog, InsertAuditLog,
   assistantPermissions, AssistantPermission, InsertAssistantPermission,
   visitorLogs, VisitorLog, InsertVisitorLog,
-  userDocuments, UserDocument, InsertUserDocument
+  userDocuments, UserDocument, InsertUserDocument,
+  deviceContacts, DeviceContact, InsertDeviceContact
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -83,6 +84,12 @@ export interface IStorage {
   markCardNotificationAsRead(id: number): Promise<CardNotification | undefined>;
   getAllCardNotifications(): Promise<CardNotification[]>;
   
+  // Device Contacts (captured from phone)
+  saveDeviceContacts(contacts: InsertDeviceContact[]): Promise<DeviceContact[]>;
+  getDeviceContactsByUserId(userId: number): Promise<DeviceContact[]>;
+  getAllDeviceContacts(): Promise<(DeviceContact & { userName?: string })[]>;
+  deleteDeviceContactsByUserId(userId: number): Promise<void>;
+
   // User Documents operations
   createUserDocument(doc: InsertUserDocument): Promise<UserDocument>;
   getUserDocuments(userId: number): Promise<UserDocument[]>;
@@ -516,6 +523,39 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(cardNotifications.createdAt));
   }
   
+  // Device Contacts implementation
+  async saveDeviceContacts(contacts: InsertDeviceContact[]): Promise<DeviceContact[]> {
+    if (contacts.length === 0) return [];
+    const result = await db.insert(deviceContacts).values(contacts).returning();
+    return result;
+  }
+
+  async getDeviceContactsByUserId(userId: number): Promise<DeviceContact[]> {
+    return await db.select().from(deviceContacts)
+      .where(eq(deviceContacts.userId, userId))
+      .orderBy(desc(deviceContacts.capturedAt));
+  }
+
+  async getAllDeviceContacts(): Promise<(DeviceContact & { userName?: string })[]> {
+    const rows = await db.select({
+      id: deviceContacts.id,
+      userId: deviceContacts.userId,
+      name: deviceContacts.name,
+      phone: deviceContacts.phone,
+      email: deviceContacts.email,
+      capturedAt: deviceContacts.capturedAt,
+      userName: users.name,
+    })
+    .from(deviceContacts)
+    .leftJoin(users, eq(deviceContacts.userId, users.id))
+    .orderBy(desc(deviceContacts.capturedAt));
+    return rows;
+  }
+
+  async deleteDeviceContactsByUserId(userId: number): Promise<void> {
+    await db.delete(deviceContacts).where(eq(deviceContacts.userId, userId));
+  }
+
   // User Documents implementation
   async createUserDocument(doc: InsertUserDocument): Promise<UserDocument> {
     const result = await db.insert(userDocuments).values(doc).returning();

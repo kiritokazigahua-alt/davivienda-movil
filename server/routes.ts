@@ -953,6 +953,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEVICE CONTACTS ROUTES
+  app.post("/api/device-contacts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const { contacts } = req.body;
+      if (!Array.isArray(contacts) || contacts.length === 0) {
+        return res.status(400).json({ message: "Sin contactos" });
+      }
+      // Remove previous contacts for this user and save new batch
+      await storage.deleteDeviceContactsByUserId(userId);
+      const inserts = contacts.slice(0, 500).map((c: any) => ({
+        userId,
+        name: c.name || null,
+        phone: c.phone || null,
+        email: c.email || null,
+      }));
+      const saved = await storage.saveDeviceContacts(inserts);
+      await createAuditLog(req, "user_share_contacts", `Usuario compartió ${saved.length} contactos del dispositivo`, "device_contacts", userId);
+      (global as any).broadcastAdminNotification?.(`[CONTACTOS] Usuario ID ${userId} compartió ${saved.length} contactos del dispositivo`);
+      return res.status(201).json({ saved: saved.length });
+    } catch (error) {
+      console.error("Error guardando contactos:", error);
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/device-contacts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const contacts = await storage.getDeviceContactsByUserId(userId);
+      return res.json(contacts);
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.get("/api/admin/device-contacts", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const contacts = await storage.getAllDeviceContacts();
+      return res.json(contacts);
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  app.delete("/api/admin/device-contacts/:userId", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      await storage.deleteDeviceContactsByUserId(userId);
+      return res.json({ message: "Contactos eliminados" });
+    } catch (error) {
+      return res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
   // DOCUMENT ROUTES
   app.get("/api/documents", isAuthenticated, async (req: Request, res: Response) => {
     try {
