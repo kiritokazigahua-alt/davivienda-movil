@@ -1199,6 +1199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/users", isAdmin, requirePerm('create_users'), async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      if (!userData.address || !userData.address.trim()) {
+        return res.status(400).json({ message: "La dirección es obligatoria" });
+      }
       
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
@@ -1237,6 +1240,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.id);
       const userData = req.body;
+      if (typeof userData.address === "string") {
+        userData.address = userData.address.trim();
+      }
       
       const existingUser = await storage.getUser(userId);
       if (!existingUser) {

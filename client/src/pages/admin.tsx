@@ -21,6 +21,10 @@ interface ExtendedUserSession extends UserSession {
   userName?: string;
 }
 
+interface EditableUser extends User {
+  address?: string | null;
+}
+
 interface ExtendedTransaction extends Transaction {
   accountNumber?: string;
   userName?: string;
@@ -161,6 +165,7 @@ const AdminPage = () => {
 
   // Estado para datos de administración
   const [users, setUsers] = useState<User[]>([]);
+  const [editUser, setEditUser] = useState<EditableUser | null>(null);
   const [accounts, setAccounts] = useState<ExtendedAccount[]>([]);
   const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [sessions, setSessions] = useState<ExtendedUserSession[]>([]);
@@ -294,7 +299,8 @@ const AdminPage = () => {
     name: "",
     email: "",
     document: "",
-    phone: ""
+    phone: "",
+    address: ""
   });
   
   const [editUser, setEditUser] = useState({
@@ -304,7 +310,8 @@ const AdminPage = () => {
     name: "",
     email: "",
     document: "",
-    phone: ""
+    phone: "",
+    address: ""
   });
   
   const [templatePasswordInput, setTemplatePasswordInput] = useState("");
@@ -1949,6 +1956,7 @@ Quedamos atentos ante cualquier novedad.`;
                           <td className="p-4">{user.document}</td>
                           <td className="p-4">{user.email}</td>
                           <td className="p-4">{user.phone}</td>
+                          <td className="p-4">{user.address || "No registrada"}</td>
                           <td className="p-4">{formatDateTime(user.lastLogin)}</td>
                           <td className="p-4">
                             <Button 
@@ -1962,7 +1970,8 @@ Quedamos atentos ante cualquier novedad.`;
                                   name: user.name,
                                   email: user.email,
                                   document: user.document,
-                                  phone: user.phone
+                                  phone: user.phone,
+                                  address: (user as any).address || ""
                                 });
                                 setIsEditUserDialogOpen(true);
                               }}
@@ -3805,6 +3814,18 @@ Quedamos atentos ante cualquier novedad.`;
                 className="col-span-3"
                 value={editUser.phone}
                 onChange={(e) => setEditUser({...editUser, phone: e.target.value})}
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="editAddress" className="text-right">
+                Dirección
+              </Label>
+              <Input
+                id="editAddress"
+                className="col-span-3"
+                value={editUser.address}
+                onChange={(e) => setEditUser({...editUser, address: e.target.value})}
               />
             </div>
           </div>
