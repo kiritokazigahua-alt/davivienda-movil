@@ -340,12 +340,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      
+
+      if (!userData.address || !userData.address.trim()) {
+        return res.status(400).json({ message: "La dirección es obligatoria" });
+      }
+
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "El usuario ya existe" });
       }
-      
+
       userData.password = await hashPassword(userData.password);
       const user = await storage.createUser(userData);
       

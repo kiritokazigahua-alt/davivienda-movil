@@ -33,6 +33,7 @@ const LoginPage = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regDocument, setRegDocument] = useState('');
+  const [regAddress, setRegAddress] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   
@@ -118,15 +119,15 @@ const LoginPage = () => {
   };
   
   const handleRegisterUser = async () => {
-    if (!regName || !regEmail || !regPhone || !regDocument || !regPassword) {
+    if (!regName || !regEmail || !regPhone || !regDocument || !regAddress || !regPassword) {
       toast({
         title: "Campos incompletos",
-        description: "Por favor, completa todos los campos requeridos",
+        description: "Por favor, completa todos los campos requeridos incluyendo la dirección",
         variant: "destructive",
       });
       return;
     }
-    
+
     if (regPassword !== regConfirmPassword) {
       toast({
         title: "Contraseñas no coinciden",
@@ -135,9 +136,9 @@ const LoginPage = () => {
       });
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -148,6 +149,7 @@ const LoginPage = () => {
           email: regEmail,
           phone: regPhone,
           document: regDocument,
+          address: regAddress,
           password: regPassword,
           isAdmin: 0,
         }),
@@ -277,14 +279,24 @@ const LoginPage = () => {
           
           <div>
             <label className="text-sm font-medium text-gray-700">Número de documento</label>
-            <Input 
+            <Input
               value={regDocument}
               onChange={(e) => setRegDocument(e.target.value)}
               placeholder="Ingrese su número de documento"
               className="mt-1"
             />
           </div>
-          
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Dirección</label>
+            <Input
+              value={regAddress}
+              onChange={(e) => setRegAddress(e.target.value)}
+              placeholder="Ingrese su dirección completa"
+              className="mt-1"
+            />
+          </div>
+
           <div>
             <label className="text-sm font-medium text-gray-700">Contraseña</label>
             <Input 
@@ -487,8 +499,8 @@ const LoginPage = () => {
           Quiero un producto
         </Button>
         
-        {mobileAppEnabled && !isAppInstalled && (
-          <Button 
+        {!isAppInstalled && (
+          <Button
             data-testid="button-install-app"
             className="w-full rounded-full bg-white/20 text-white border border-white/50 h-12 shadow-md flex items-center justify-center gap-2 hover:bg-white/30 text-sm"
             onClick={handleInstallApp}

@@ -1185,7 +1185,8 @@ Quedamos atentos ante cualquier novedad.`;
         name: "",
         email: "",
         document: "",
-        phone: ""
+        phone: "",
+        address: ""
       });
       
       fetchUsers();
@@ -3718,6 +3719,19 @@ Quedamos atentos ante cualquier novedad.`;
                 className="col-span-3"
                 value={newUser.phone}
                 onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Dirección *
+              </Label>
+              <Input
+                id="address"
+                className="col-span-3"
+                value={newUser.address}
+                onChange={(e) => setNewUser({...newUser, address: e.target.value})}
+                placeholder="Dirección completa del usuario"
               />
             </div>
           </div>
