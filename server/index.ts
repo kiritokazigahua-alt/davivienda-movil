@@ -80,6 +80,10 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.path.startsWith('/api') && !req.path.startsWith('/api/stripe/webhook')) {
+    // Skip origin validation in production behind a proxy (Railway, Replit, etc.)
+    if (process.env.NODE_ENV === 'production') {
+      return next();
+    }
     const origin = req.get('origin');
     const referer = req.get('referer');
     const sourceUrl = origin || (referer ? referer : null);
@@ -140,9 +144,13 @@ async function initStripe() {
 
     const stripeSync = await getStripeSync();
 
-    const replitDomains = process.env.REPLIT_DOMAINS;
-    if (replitDomains) {
-      const webhookBaseUrl = `https://${replitDomains.split(',')[0]}`;
+    let webhookBaseUrl: string | null = null;
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+      webhookBaseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+    } else if (process.env.REPLIT_DOMAINS) {
+      webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+    }
+    if (webhookBaseUrl) {
       await stripeSync.findOrCreateManagedWebhook(
         `${webhookBaseUrl}/api/stripe/webhook`
       );
@@ -175,7 +183,7 @@ async function initStripe() {
     serveStatic(app);
   }
 
-  const port = 5000;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   server.listen({
     port,
     host: "0.0.0.0",
