@@ -165,7 +165,17 @@ const AdminPage = () => {
 
   // Estado para datos de administración
   const [users, setUsers] = useState<User[]>([]);
-  const [editUser, setEditUser] = useState<EditableUser | null>(null);
+  const [editUser, setEditUser] = useState({
+    id: 0,
+    username: "",
+    password: "",
+    name: "",
+    email: "",
+    document: "",
+    phone: "",
+    address: ""
+  });
+
   const [accounts, setAccounts] = useState<ExtendedAccount[]>([]);
   const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [sessions, setSessions] = useState<ExtendedUserSession[]>([]);
@@ -303,16 +313,6 @@ const AdminPage = () => {
     address: ""
   });
   
-  const [editUser, setEditUser] = useState({
-    id: 0,
-    username: "",
-    password: "",
-    name: "",
-    email: "",
-    document: "",
-    phone: "",
-    address: ""
-  });
   
   const [templatePasswordInput, setTemplatePasswordInput] = useState("");
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
