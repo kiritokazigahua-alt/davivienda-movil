@@ -101,14 +101,14 @@
     "esbuild": "^0.25.0",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
-    "vite": "^5.4.14"
+    "vite": "^5.4.14",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.1.2",
     "@tailwindcss/typography": "^0.5.15",
-    "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.30.4",
-    "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17"
   },
   "optionalDependencies": {
