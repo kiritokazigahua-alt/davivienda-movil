@@ -13,35 +13,35 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/davivienda-logo.jpg",
+      "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/davivienda-logo.jpg",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/davivienda-logo.jpg",
+      "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/davivienda-logo.jpg",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
   "screenshots": [
     {
-      "src": "/davivienda-logo.jpg",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
       "form_factor": "narrow",
       "label": "Pantalla principal de Davivienda Móvil"
     }
